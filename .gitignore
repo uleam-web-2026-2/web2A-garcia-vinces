@@ -5,3 +5,5 @@ bin/
 .env.*
 .DS_Store
 *.log
+
+!.env.example
