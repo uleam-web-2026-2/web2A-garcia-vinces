@@ -13,6 +13,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 
 	"github.com/Jeanvncs/myfirstgo/internal/respuesta"
 )
@@ -112,31 +113,44 @@ func (m *Manejador) unirse(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var ev Evento
-	if err := m.DB.Where("codigo_acceso = ?", in.CodigoAcceso).First(&ev).Error; err != nil {
-		respuesta.Error(w, http.StatusNotFound, "codigo_inexistente", "El código de acceso no existe")
-		return
-	}
-
 	var inv Invitado
-	err := m.DB.Where("evento_id = ? AND nombre = ?", ev.ID, in.Nombre).First(&inv).Error
-	if err == nil { // ya existía: recupera su mismo contador
-		if inv.Pin != in.Pin {
-			respuesta.Error(w, http.StatusUnauthorized, "pin_incorrecto", "PIN incorrecto")
+	err := m.DB.Transaction(func(tx *gorm.DB) error {
+		// Bloquea la fila del evento mientras dure la transacción,
+		// así dos "unirse" simultáneos no cuentan el mismo cupo libre.
+		var ev Evento
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
+			Where("codigo_acceso = ?", in.CodigoAcceso).First(&ev).Error; err != nil {
+			return &errHTTP{http.StatusNotFound, "codigo_inexistente", "El código de acceso no existe"}
+		}
+
+		// ¿Ya existe con ese nombre? Reutiliza su registro (no consume cupo nuevo).
+		err := tx.Where("evento_id = ? AND nombre = ?", ev.ID, in.Nombre).First(&inv).Error
+		if err == nil {
+			if inv.Pin != in.Pin {
+				return &errHTTP{http.StatusUnauthorized, "pin_incorrecto", "PIN incorrecto"}
+			}
+			return nil
+		}
+		if !errors.Is(err, gorm.ErrRecordNotFound) {
+			return err // error real de BD, no "no encontrado"
+		}
+
+		var total int64
+		tx.Model(&Invitado{}).Where("evento_id = ?", ev.ID).Count(&total)
+		if int(total) >= ev.MaxInvitado {
+			return &errHTTP{http.StatusConflict, "evento_lleno", "El evento alcanzó el máximo de invitados"}
+		}
+
+		inv = Invitado{Nombre: in.Nombre, Pin: in.Pin, EventoID: ev.ID}
+		return tx.Create(&inv).Error
+	})
+
+	if err != nil {
+		var eh *errHTTP
+		if errors.As(err, &eh) {
+			respuesta.Error(w, eh.status, eh.codigo, eh.msg)
 			return
 		}
-		respuesta.Exito(w, http.StatusOK, inv)
-		return
-	}
-
-	var total int64
-	m.DB.Model(&Invitado{}).Where("evento_id = ?", ev.ID).Count(&total)
-	if int(total) >= ev.MaxInvitado {
-		respuesta.Error(w, http.StatusConflict, "evento_lleno", "El evento alcanzó el máximo de invitados")
-		return
-	}
-	inv = Invitado{Nombre: in.Nombre, Pin: in.Pin, EventoID: ev.ID}
-	if err := m.DB.Create(&inv).Error; err != nil {
 		respuesta.Error(w, http.StatusInternalServerError, "error_base", "No se pudo registrar al invitado")
 		return
 	}
@@ -276,6 +290,7 @@ func (m *Manejador) cambiarEstado(w http.ResponseWriter, r *http.Request) {
 	}
 	respuesta.Exito(w, http.StatusOK, ev)
 }
+
 // GET /eventos/{id}
 func (m *Manejador) verEvento(w http.ResponseWriter, r *http.Request) {
 	uid, ok := adminID(r)
