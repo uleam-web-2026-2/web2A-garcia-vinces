@@ -262,7 +262,7 @@ func (m *Manejador) cambiarEstado(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if _, conocido := transiciones[in.Estado]; !conocido {
-		respuesta.Error(w, http.StatusBadRequest, "estado_desconocido", "Estado desconocido")
+		respuesta.Error(w, http.StatusUnprocessableEntity, "estado_desconocido", "Estado desconocido")
 		return
 	}
 	var ev Evento
@@ -275,7 +275,7 @@ func (m *Manejador) cambiarEstado(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if !slices.Contains(transiciones[ev.Estado], in.Estado) {
-		respuesta.Error(w, http.StatusConflict, "transicion_prohibida",
+		respuesta.Error(w, http.StatusUnprocessableEntity, "transicion_prohibida",
 			"Transición no permitida: "+ev.Estado+" → "+in.Estado)
 		return
 	}

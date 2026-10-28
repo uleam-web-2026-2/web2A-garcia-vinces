@@ -65,7 +65,7 @@ func TestCuotaAgotada(t *testing.T) {
 	s.DB.Create(&inv)
 
 	rec := llamar(s, "POST", "/fotos", `{"uuid":"u-1","url_archivo":"/archivos/1.jpg","invitado_id":1}`)
-	esperar(t, rec, http.StatusForbidden)
+	      esperar(t, rec, http.StatusForbidden)
 }
 
 func TestEstadoDesconocido(t *testing.T) {
@@ -74,7 +74,7 @@ func TestEstadoDesconocido(t *testing.T) {
 	s.DB.Create(&ev)
 
 	rec := llamar(s, "PATCH", "/eventos/1/estado", `{"estado":"volando"}`)
-	esperar(t, rec, http.StatusBadRequest)
+	   esperar(t, rec, http.StatusUnprocessableEntity)
 }
 
 func TestTransicionProhibida(t *testing.T) {
@@ -83,7 +83,7 @@ func TestTransicionProhibida(t *testing.T) {
 	s.DB.Create(&ev)
 
 	rec := llamar(s, "PATCH", "/eventos/1/estado", `{"estado":"activo"}`)
-	esperar(t, rec, http.StatusConflict)
+	   esperar(t, rec, http.StatusUnprocessableEntity)
 
 	var despues Evento
 	s.DB.First(&despues, ev.ID)
