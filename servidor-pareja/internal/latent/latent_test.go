@@ -221,13 +221,16 @@ func TestDemoHito2RespuestasDeRolesYTransicion(t *testing.T) {
 	s.router = r
 
 	// Petición 1: ruta protegida sin token.
-	esperar(t, llamar(s, "GET", "/eventos/2/fotos", ""), http.StatusUnauthorized)
+	sinToken := llamar(s, "GET", "/eventos/2/fotos", "")
+	esperar(t, sinToken, http.StatusUnauthorized)
+	t.Logf("CAPTURA 1 | GET /eventos/2/fotos sin token | HTTP %d | %s", sinToken.Code, strings.TrimSpace(sinToken.Body.String()))
 
 	// Preparación: el invitado entra con código, nombre y PIN, y recibe un
 	// token vinculado a su registro y a ese evento.
 	union := llamar(s, http.MethodPost, "/eventos/unirse",
 		`{"codigo_acceso":"EVT-DEMO2","nombre":"Carlos","pin":"0427"}`)
 	esperar(t, union, http.StatusOK)
+	t.Logf("CAPTURA 0 | POST /eventos/unirse | HTTP %d | token omitido", union.Code)
 	var respuestaUnion struct {
 		Datos struct {
 			Token string `json:"token"`
@@ -239,19 +242,38 @@ func TestDemoHito2RespuestasDeRolesYTransicion(t *testing.T) {
 	invitadoToken := respuestaUnion.Datos.Token
 
 	// Petición 2: el anfitrión inicia sesión y obtiene su token.
-	luis := loginDePrueba(t, s, "luis", "luis-2026")
+	login := llamar(s, http.MethodPost, "/login", `{"usuario":"luis","clave":"luis-2026"}`)
+	esperar(t, login, http.StatusOK)
+	t.Logf("CAPTURA 2 | POST /login | HTTP %d | JWT emitido (valor omitido)", login.Code)
+	var cuerpoLogin struct {
+		Datos struct {
+			Token string `json:"token"`
+		} `json:"datos"`
+	}
+	if err := json.Unmarshal(login.Body.Bytes(), &cuerpoLogin); err != nil {
+		t.Fatal(err)
+	}
+	luis := cuerpoLogin.Datos.Token
 
 	// Petición 3: la solicitante puede ver la galería del evento.
-	esperar(t, enviar(s, invitadoToken, "GET", "/eventos/2/fotos", ""), http.StatusOK)
+	galeria := enviar(s, invitadoToken, "GET", "/eventos/2/fotos", "")
+	esperar(t, galeria, http.StatusOK)
+	t.Logf("CAPTURA 3 | GET /eventos/2/fotos como invitado | HTTP %d | %s", galeria.Code, strings.TrimSpace(galeria.Body.String()))
 
 	// Petición 4: la solicitante no puede administrar estados.
-	esperar(t, enviar(s, invitadoToken, "PATCH", "/eventos/2", `{"estado":"activo"}`), http.StatusForbidden)
+	rolIncorrecto := enviar(s, invitadoToken, "PATCH", "/eventos/2", `{"estado":"activo"}`)
+	esperar(t, rolIncorrecto, http.StatusForbidden)
+	t.Logf("CAPTURA 4 | PATCH /eventos/2 como invitado | HTTP %d | %s", rolIncorrecto.Code, strings.TrimSpace(rolIncorrecto.Body.String()))
 
 	// Petición 5: el anfitrión puede iniciar un evento creado.
-	esperar(t, enviar(s, luis, "PATCH", "/eventos/2", `{"estado":"activo"}`), http.StatusOK)
+	rolCorrecto := enviar(s, luis, "PATCH", "/eventos/2", `{"estado":"activo"}`)
+	esperar(t, rolCorrecto, http.StatusOK)
+	t.Logf("CAPTURA 5 | PATCH /eventos/2 como anfitrión | HTTP %d | %s", rolCorrecto.Code, strings.TrimSpace(rolCorrecto.Body.String()))
 
 	// Petición 6: un evento revelado no puede reactivarse.
-	esperar(t, enviar(s, luis, "PATCH", "/eventos/1", `{"estado":"activo"}`), http.StatusUnprocessableEntity)
+	transicion := enviar(s, luis, "PATCH", "/eventos/1", `{"estado":"activo"}`)
+	esperar(t, transicion, http.StatusUnprocessableEntity)
+	t.Logf("CAPTURA 6 | PATCH /eventos/1 (finalizado → activo) | HTTP %d | %s", transicion.Code, strings.TrimSpace(transicion.Body.String()))
 }
 
 func loginDePrueba(t *testing.T, s *servidorPrueba, usuario, clave string) string {
