@@ -1,7 +1,6 @@
 # Latent
 
-**Hilo Servidor · ULEAM · Período 2026-2**
-Aplicaciones Web II (TDI-610) · Aplicación para el Servidor Web (IS-503)
+**Aplicaciones Web II · ULEAM · Web II A · Período 2026-2**
 
 ## Integrantes
 
@@ -10,87 +9,76 @@ Aplicaciones Web II (TDI-610) · Aplicación para el Servidor Web (IS-503)
 | Ordeoñez Jostin Dionicio | Jostin12Garcia | Web II A |
 | Vinces Chonillo Jean Carlos | Jeanvncs | Web II A |
 
-## El producto
+Latent es una cámara desechable digital para bodas, cumpleaños y fiestas. El anfitrión crea un evento y comparte su código; los invitados entran desde el celular y cada persona tiene un número limitado de fotos. Al terminar la fiesta, el anfitrión revela el álbum completo.
 
-Latent es una cámara desechable digital para eventos sociales (bodas, cumpleaños y fiestas). Vende a los anfitriones un evento con código de acceso en el que cada invitado toma un número limitado de fotos (3), sin instalar apps ni crear una cuenta, y el anfitrión recibe el álbum completo. El negocio de referencia es ONCE.
+## Aplicación web
 
-La ficha del negocio y el addendum técnico del Hito 1 están en [`docs/hito1_ficha_del_negocio.md`](docs/hito1_ficha_del_negocio.md) y [`docs/hito1_addendum.md`](docs/hito1_addendum.md).
+La interfaz está en `servidor-pareja/web/` y se sirve desde el mismo servidor Go:
 
-## Cómo levantar el servidor
+- Portada de Latent y acceso para anfitriones e invitados.
+- Panel del anfitrión para crear eventos, consultar el código, iniciar o cancelar la fiesta y revelar el álbum.
+- Cámara móvil para invitados, con vista previa, límite de tamaño y contador de fotos.
+- Galería de fotos para anfitrión e invitados.
 
-Requisitos: Go (versión estable) y PostgreSQL.
+Las fotos seleccionadas se envían al servidor como imágenes en base64 dentro de `url_archivo`. Para la demostración, cada imagen puede pesar hasta 4 MB.
 
-1. Crea una base de datos en PostgreSQL llamada `Latent`.
-2. El servidor no lee archivos `.env`: toma `PUERTO` y `DATABASE_URL` del entorno. Los valores de ejemplo están en [`servidor-pareja/.env.example`](servidor-pareja/.env.example).
-3. Desde la carpeta `servidor-pareja`, define las variables y arranca el servidor.
+## Requisitos
 
-En PowerShell (Windows):
+- Go (versión estable)
+- PostgreSQL
+
+Crea una base de datos llamada `Latent`. Desde PowerShell, en la carpeta `servidor-pareja`, configura el entorno y arranca el servidor:
 
 ```powershell
-cd servidor-pareja
 $env:PUERTO = "8081"
 $env:DATABASE_URL = "postgres://usuario:clave@localhost:5432/Latent?sslmode=disable"
+$env:CLAVE_FIRMA = "una-frase-larga-para-firmar-tokens"
 go run .
 ```
 
-En bash (Linux o macOS):
+Abre `http://localhost:8081` en el navegador. La página y la API usan el mismo puerto.
 
-```bash
-cd servidor-pareja
-export PUERTO=8081
-export DATABASE_URL="postgres://usuario:clave@localhost:5432/Latent?sslmode=disable"
-go run .
-```
+## Cuentas de demostración
 
-El servidor responde en `http://localhost:8081`.
+El servidor crea estas cuentas de ejemplo al iniciar:
 
-Todas las peticiones necesitan la cabecera `X-Usuario-ID` (por ejemplo, `X-Usuario-ID: 1`). Sin ella, el servidor responde 401. Para crear un evento, envía `POST /eventos` con este cuerpo JSON:
+| Rol | Usuario | Contraseña |
+| --- | --- | --- |
+| Anfitrión | `luis` | `luis-2026` |
+| Invitada | `ana` | `ana-2026` |
 
-```json
-{
-  "nombre": "Boda de prueba",
-  "disparo_por_invitado": 3,
-  "max_invitado": 50
-}
-```
+El flujo de invitados solicita además el código de evento, un nombre y un PIN de cuatro dígitos. Estas credenciales solo sirven para demostraciones locales.
 
-La respuesta correcta es 201 Created. Con el nombre vacío, responde 400.
+## Rutas principales
 
-## Base de datos
+| Método | Ruta | Acceso |
+| --- | --- | --- |
+| `POST` | `/login` | Público; devuelve un token |
+| `POST` | `/eventos/unirse` | Público; registra al invitado con código, nombre y PIN |
+| `GET` | `/eventos` | Anfitrión; lista sus eventos |
+| `POST` | `/eventos` | Anfitrión; crea un evento |
+| `GET` | `/eventos/{id}` | Anfitrión propietario; consulta un evento |
+| `PATCH` | `/eventos/{id}/estado` | Anfitrión propietario; cambia el estado |
+| `GET` | `/eventos/{id}/resumen` | Usuario autenticado; devuelve los datos de cámara necesarios |
+| `GET` | `/eventos/{id}/fotos` | Usuario autenticado; consulta la galería |
+| `POST` | `/fotos` | Invitado autenticado; guarda una foto |
 
-- Opción usada por la pareja: PostgreSQL nativo
-- Base de datos del proyecto: `Latent`
+Las rutas protegidas usan `Authorization: Bearer <token>`. `CLAVE_FIRMA`, `DATABASE_URL` y `PUERTO` se leen del entorno; el servidor no carga archivos `.env` automáticamente.
 
-## Cómo correr las pruebas
+## Repositorio
 
-```bash
-cd servidor-pareja
-go test ./...
-```
+- `servidor-pareja/main.go`: configuración, migración y arranque del servidor.
+- `servidor-pareja/internal/latent/`: eventos, invitados, fotos y rutas de la API.
+- `servidor-pareja/internal/sesion/`: autenticación, tokens y roles.
+- `servidor-pareja/web/`: interfaz web.
+- `docs/`: ficha del negocio, addendum técnico y capturas del Hito 1.
 
-Son 5 pruebas, en `servidor-pareja/internal/latent/latent_test.go`, una por cada regla de negocio del Hito 1. Las pruebas corren también en la integración continua (pestaña Actions). Desde la semana 4, un entregable cuyas pruebas no pasan en la integración no se recibe.
+## Colaboración
 
-## Convenciones del repositorio
+El repositorio recomienda al menos un commit de cada integrante por taller. Incluyan en el cuerpo del commit una línea con la herramienta de IA usada y para qué parte, y no suban credenciales reales.
 
-- Un commit de cada integrante como mínimo por taller; el commit de cierre se hace en clase.
-- Mensajes de commit: qué cambió y por qué, entendibles sin el autor presente.
-- Uso de IA declarado en el cuerpo del commit: una línea con qué herramienta y para qué parte.
-- Ningún secreto en el código ni en el historial: la configuración se externaliza (semana 4).
-
-## Estructura
-
-```
-docs/ficha_negocio.md              → ficha preliminar del negocio (semana 3)
-docs/hito1_ficha_del_negocio.md    → ficha del Hito 1
-docs/hito1_addendum.md             → addendum técnico del Hito 1
-docs/hito1_*.png                   → capturas de pruebas y de respuestas de la API
-servidor-pareja/main.go            → punto de entrada del servidor
-servidor-pareja/internal/latent/   → modelos, manejadores, rutas y pruebas
-servidor-pareja/internal/middleware/ → identificación del usuario (X-Usuario-ID)
-servidor-pareja/internal/respuesta/  → formato común de las respuestas JSON
-servidor-pareja/.env.example       → variables de entorno de ejemplo
-```
 
 ## Historial previo
 
-El trabajo anterior a este repositorio, con sus commits, está en https://github.com/Jeanvncs/-web2A-Garcia-Vinces
+El trabajo anterior está en [el repositorio previo](https://github.com/Jeanvncs/-web2A-Garcia-Vinces).
+

@@ -15,6 +15,8 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 
+	"github.com/Jeanvncs/myfirstgo/internal/sesion"
+
 	"github.com/Jeanvncs/myfirstgo/internal/respuesta"
 )
 
@@ -29,17 +31,6 @@ type errHTTP struct {
 }
 
 func (e *errHTTP) Error() string { return e.msg }
-
-// Identificación provisional por cabecera (el Hito 1 no pide login).
-func adminID(r *http.Request) (uint, bool) {
-	n, err := strconv.ParseUint(r.Header.Get("X-Usuario-ID"), 10, 64)
-	return uint(n), err == nil && n > 0
-}
-
-func invitadoID(r *http.Request) (uint, bool) {
-	n, err := strconv.ParseUint(r.Header.Get("X-Invitado-ID"), 10, 64)
-	return uint(n), err == nil && n > 0
-}
 
 func leerID(w http.ResponseWriter, r *http.Request) (uint, bool) {
 	n, err := strconv.Atoi(chi.URLParam(r, "id"))
@@ -62,11 +53,8 @@ func generarCodigo() string {
 
 // POST /eventos
 func (m *Manejador) crearEvento(w http.ResponseWriter, r *http.Request) {
-	uid, ok := adminID(r)
-	if !ok {
-		respuesta.Error(w, http.StatusUnauthorized, "no_identificado", "Falta X-Usuario-ID")
-		return
-	}
+	ses, _ := sesion.De(r) // el guardia ya comprobó el token y el rol
+	uid := ses.UsuarioID
 	var in struct {
 		Nombre             string `json:"nombre"`
 		DisparoPorInvitado int    `json:"disparo_por_invitado"`
@@ -220,12 +208,6 @@ func (m *Manejador) crearFoto(w http.ResponseWriter, r *http.Request) {
 
 // GET /eventos/{id}/fotos
 func (m *Manejador) listarFotos(w http.ResponseWriter, r *http.Request) {
-	_, esAdmin := adminID(r)
-	_, esInvitado := invitadoID(r)
-	if !esAdmin && !esInvitado {
-		respuesta.Error(w, http.StatusUnauthorized, "no_identificado", "Debes identificarte")
-		return
-	}
 	id, ok := leerID(w, r)
 	if !ok {
 		return
@@ -233,6 +215,11 @@ func (m *Manejador) listarFotos(w http.ResponseWriter, r *http.Request) {
 	var ev Evento
 	if err := m.DB.First(&ev, id).Error; err != nil {
 		respuesta.Error(w, http.StatusNotFound, "no_encontrado", "Evento no encontrado")
+		return
+	}
+	ses, _ := sesion.De(r)
+	if ses.Rol == sesion.RolInvitado && ev.Estado != EstadoFinalizado {
+		respuesta.Exito(w, http.StatusOK, []Foto{})
 		return
 	}
 	fotos := []Foto{}
@@ -245,11 +232,8 @@ func (m *Manejador) listarFotos(w http.ResponseWriter, r *http.Request) {
 
 // PATCH /eventos/{id}/estado
 func (m *Manejador) cambiarEstado(w http.ResponseWriter, r *http.Request) {
-	uid, ok := adminID(r)
-	if !ok {
-		respuesta.Error(w, http.StatusUnauthorized, "no_identificado", "Falta X-Usuario-ID")
-		return
-	}
+	ses, _ := sesion.De(r) // el guardia ya comprobó el token y el rol
+	uid := ses.UsuarioID
 	id, ok := leerID(w, r)
 	if !ok {
 		return
@@ -293,11 +277,8 @@ func (m *Manejador) cambiarEstado(w http.ResponseWriter, r *http.Request) {
 
 // GET /eventos/{id}
 func (m *Manejador) verEvento(w http.ResponseWriter, r *http.Request) {
-	uid, ok := adminID(r)
-	if !ok {
-		respuesta.Error(w, http.StatusUnauthorized, "no_identificado", "Falta X-Usuario-ID")
-		return
-	}
+	ses, _ := sesion.De(r) // el guardia ya comprobó el token y el rol
+	uid := ses.UsuarioID
 	id, ok := leerID(w, r)
 	if !ok {
 		return
@@ -312,4 +293,35 @@ func (m *Manejador) verEvento(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	respuesta.Exito(w, http.StatusOK, ev)
+}
+
+// GET /eventos — lista los eventos del anfitrión autenticado.
+func (m *Manejador) listarEventos(w http.ResponseWriter, r *http.Request) {
+	ses, _ := sesion.De(r)
+	var eventos []Evento
+	if err := m.DB.Where("usuario_id = ?", ses.UsuarioID).Order("id DESC").Find(&eventos).Error; err != nil {
+		respuesta.Error(w, http.StatusInternalServerError, "error_base", "No se pudieron listar los eventos")
+		return
+	}
+	if eventos == nil {
+		eventos = []Evento{}
+	}
+	respuesta.Exito(w, http.StatusOK, eventos)
+}
+
+// GET /eventos/{id}/resumen — datos mínimos que necesita cualquier asistente.
+func (m *Manejador) resumenEvento(w http.ResponseWriter, r *http.Request) {
+	id, ok := leerID(w, r)
+	if !ok {
+		return
+	}
+	var ev Evento
+	if err := m.DB.First(&ev, id).Error; err != nil {
+		respuesta.Error(w, http.StatusNotFound, "no_encontrado", "Evento no encontrado")
+		return
+	}
+	respuesta.Exito(w, http.StatusOK, map[string]any{
+		"id": ev.ID, "nombre": ev.Nombre, "estado": ev.Estado,
+		"disparo_por_invitado": ev.DisparoPorInvitado,
+	})
 }
