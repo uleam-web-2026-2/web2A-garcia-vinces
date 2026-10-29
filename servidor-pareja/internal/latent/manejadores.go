@@ -1,15 +1,12 @@
 package latent
 
 import (
-	"crypto/rand"
 	"encoding/json"
 	"errors"
 	"net/http"
 	"regexp"
-	"slices"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/go-chi/chi/v5"
 	"gorm.io/gorm"
@@ -20,7 +17,11 @@ import (
 	"github.com/Jeanvncs/myfirstgo/internal/respuesta"
 )
 
-type Manejador struct{ DB *gorm.DB }
+type Manejador struct {
+	DB      *gorm.DB
+	Tokens  *sesion.Tokens
+	Eventos *ServicioEventos
+}
 
 var rePin = regexp.MustCompile(`^\d{4}$`)
 
@@ -41,20 +42,9 @@ func leerID(w http.ResponseWriter, r *http.Request) (uint, bool) {
 	return uint(n), true
 }
 
-func generarCodigo() string {
-	const alfabeto = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
-	b := make([]byte, 4)
-	rand.Read(b)
-	for i := range b {
-		b[i] = alfabeto[int(b[i])%len(alfabeto)]
-	}
-	return "EVT-" + string(b)
-}
-
 // POST /eventos
 func (m *Manejador) crearEvento(w http.ResponseWriter, r *http.Request) {
 	ses, _ := sesion.De(r) // el guardia ya comprobó el token y el rol
-	uid := ses.UsuarioID
 	var in struct {
 		Nombre             string `json:"nombre"`
 		DisparoPorInvitado int    `json:"disparo_por_invitado"`
@@ -64,24 +54,38 @@ func (m *Manejador) crearEvento(w http.ResponseWriter, r *http.Request) {
 		respuesta.Error(w, http.StatusBadRequest, "json_invalido", "El cuerpo no es un JSON válido")
 		return
 	}
-	if strings.TrimSpace(in.Nombre) == "" || in.DisparoPorInvitado < 1 || in.MaxInvitado < 1 {
-		respuesta.Error(w, http.StatusBadRequest, "evento_invalido",
-			"nombre, disparo_por_invitado y max_invitado son obligatorios y deben ser válidos")
-		return
-	}
-	ev := Evento{
-		Nombre:             strings.TrimSpace(in.Nombre),
-		CodigoAcceso:       generarCodigo(),
-		DisparoPorInvitado: in.DisparoPorInvitado,
-		MaxInvitado:        in.MaxInvitado,
-		Estado:             EstadoCreado,
-		UsuarioID:          uid,
-	}
-	if err := m.DB.Create(&ev).Error; err != nil {
-		respuesta.Error(w, http.StatusInternalServerError, "error_base", "No se pudo guardar")
+	ev, err := m.eventos().Crear(r.Context(), ses.UsuarioID, EventoNuevo{
+		Nombre: in.Nombre, DisparoPorInvitado: in.DisparoPorInvitado, MaxInvitado: in.MaxInvitado,
+	})
+	if err != nil {
+		m.responderErrorEvento(w, err)
 		return
 	}
 	respuesta.Exito(w, http.StatusCreated, ev)
+}
+
+func (m *Manejador) eventos() *ServicioEventos {
+	if m.Eventos == nil {
+		m.Eventos = NuevoServicioEventos(NuevoRepositorioEventos(m.DB))
+	}
+	return m.Eventos
+}
+
+func (m *Manejador) responderErrorEvento(w http.ResponseWriter, err error) {
+	switch {
+	case errors.Is(err, ErrEventoInvalido):
+		respuesta.Error(w, http.StatusBadRequest, "evento_invalido", err.Error())
+	case errors.Is(err, ErrEventoNoEncontrado):
+		respuesta.Error(w, http.StatusNotFound, "no_encontrado", err.Error())
+	case errors.Is(err, ErrEventoAjeno):
+		respuesta.Error(w, http.StatusForbidden, "no_es_tuyo", err.Error())
+	case errors.Is(err, ErrTransicion):
+		respuesta.Error(w, http.StatusUnprocessableEntity, "transicion_prohibida", err.Error())
+	case errors.Is(err, ErrEventoBloqueado), errors.Is(err, ErrEventoConDatos):
+		respuesta.Error(w, http.StatusConflict, "evento_bloqueado", err.Error())
+	default:
+		respuesta.Error(w, http.StatusInternalServerError, "error_base", "No se pudo completar la operación")
+	}
 }
 
 // POST /eventos/unirse
@@ -109,6 +113,9 @@ func (m *Manejador) unirse(w http.ResponseWriter, r *http.Request) {
 		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
 			Where("codigo_acceso = ?", in.CodigoAcceso).First(&ev).Error; err != nil {
 			return &errHTTP{http.StatusNotFound, "codigo_inexistente", "El código de acceso no existe"}
+		}
+		if ev.Estado == EstadoFinalizado || ev.Estado == EstadoCancelado {
+			return &errHTTP{http.StatusConflict, "evento_cerrado", "El evento ya no admite invitados"}
 		}
 
 		// ¿Ya existe con ese nombre? Reutiliza su registro (no consume cupo nuevo).
@@ -142,28 +149,52 @@ func (m *Manejador) unirse(w http.ResponseWriter, r *http.Request) {
 		respuesta.Error(w, http.StatusInternalServerError, "error_base", "No se pudo registrar al invitado")
 		return
 	}
-	respuesta.Exito(w, http.StatusOK, inv)
+	token := ""
+	if m.Tokens != nil {
+		var err error
+		token, err = m.Tokens.EmitirInvitado(inv.ID, inv.EventoID, inv.Nombre)
+		if err != nil {
+			respuesta.Error(w, http.StatusInternalServerError, "error_token", "No se pudo crear la sesión del invitado")
+			return
+		}
+	}
+	respuesta.Exito(w, http.StatusOK, map[string]any{"invitado": inv, "token": token})
 }
 
 // POST /fotos
 func (m *Manejador) crearFoto(w http.ResponseWriter, r *http.Request) {
+	ses, _ := sesion.De(r)
+	r.Body = http.MaxBytesReader(w, r.Body, 5<<20)
 	var in struct {
 		UUID       string `json:"uuid"`
 		URLArchivo string `json:"url_archivo"`
 		InvitadoID uint   `json:"invitado_id"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&in); err != nil {
+		var limite *http.MaxBytesError
+		if errors.As(err, &limite) {
+			respuesta.Error(w, http.StatusRequestEntityTooLarge, "foto_muy_grande", "La petición supera el límite de 5 MiB")
+			return
+		}
 		respuesta.Error(w, http.StatusBadRequest, "json_invalido", "El cuerpo no es un JSON válido")
 		return
 	}
-	if in.UUID == "" || in.URLArchivo == "" || in.InvitadoID == 0 {
+	if in.UUID == "" || len(in.UUID) > 80 || !archivoImagenPermitido(in.URLArchivo) || in.InvitadoID == 0 {
 		respuesta.Error(w, http.StatusBadRequest, "datos_invalidos", "uuid, url_archivo e invitado_id son obligatorios")
+		return
+	}
+	if ses.InvitadoID == 0 || ses.InvitadoID != in.InvitadoID {
+		respuesta.Error(w, http.StatusForbidden, "invitado_no_coincide", "La sesión no pertenece a este invitado")
 		return
 	}
 
 	// Reintento del celular con el mismo uuid: no se cuenta dos veces.
 	var existente Foto
 	if err := m.DB.Where("uuid = ?", in.UUID).First(&existente).Error; err == nil {
+		if existente.InvitadoID != ses.InvitadoID {
+			respuesta.Error(w, http.StatusForbidden, "foto_no_pertenece", "Esta foto pertenece a otra sesión")
+			return
+		}
 		respuesta.Exito(w, http.StatusOK, existente)
 		return
 	}
@@ -206,6 +237,18 @@ func (m *Manejador) crearFoto(w http.ResponseWriter, r *http.Request) {
 	respuesta.Exito(w, http.StatusCreated, foto)
 }
 
+func archivoImagenPermitido(valor string) bool {
+	if valor == "" || len(valor) > 4<<20 {
+		return false
+	}
+	for _, prefijo := range []string{"data:image/jpeg;base64,", "data:image/png;base64,", "data:image/webp;base64,", "https://", "/archivos/"} {
+		if strings.HasPrefix(valor, prefijo) {
+			return true
+		}
+	}
+	return false
+}
+
 // GET /eventos/{id}/fotos
 func (m *Manejador) listarFotos(w http.ResponseWriter, r *http.Request) {
 	id, ok := leerID(w, r)
@@ -218,6 +261,15 @@ func (m *Manejador) listarFotos(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	ses, _ := sesion.De(r)
+	if ses.Rol == sesion.RolAnfitrion {
+		if _, err := m.eventos().Obtener(r.Context(), ses.UsuarioID, id); err != nil {
+			m.responderErrorEvento(w, err)
+			return
+		}
+	} else if ses.Rol != sesion.RolInvitado || ses.InvitadoID == 0 || ses.EventoID != id {
+		respuesta.Error(w, http.StatusForbidden, "evento_no_autorizado", "La sesión no pertenece a este evento")
+		return
+	}
 	if ses.Rol == sesion.RolInvitado && ev.Estado != EstadoFinalizado {
 		respuesta.Exito(w, http.StatusOK, []Foto{})
 		return
@@ -233,7 +285,6 @@ func (m *Manejador) listarFotos(w http.ResponseWriter, r *http.Request) {
 // PATCH /eventos/{id}/estado
 func (m *Manejador) cambiarEstado(w http.ResponseWriter, r *http.Request) {
 	ses, _ := sesion.De(r) // el guardia ya comprobó el token y el rol
-	uid := ses.UsuarioID
 	id, ok := leerID(w, r)
 	if !ok {
 		return
@@ -245,31 +296,9 @@ func (m *Manejador) cambiarEstado(w http.ResponseWriter, r *http.Request) {
 		respuesta.Error(w, http.StatusBadRequest, "json_invalido", "El cuerpo no es un JSON válido")
 		return
 	}
-	if _, conocido := transiciones[in.Estado]; !conocido {
-		respuesta.Error(w, http.StatusUnprocessableEntity, "estado_desconocido", "Estado desconocido")
-		return
-	}
-	var ev Evento
-	if err := m.DB.First(&ev, id).Error; err != nil {
-		respuesta.Error(w, http.StatusNotFound, "no_encontrado", "Evento no encontrado")
-		return
-	}
-	if ev.UsuarioID != uid {
-		respuesta.Error(w, http.StatusForbidden, "no_es_tuyo", "El evento no es tuyo")
-		return
-	}
-	if !slices.Contains(transiciones[ev.Estado], in.Estado) {
-		respuesta.Error(w, http.StatusUnprocessableEntity, "transicion_prohibida",
-			"Transición no permitida: "+ev.Estado+" → "+in.Estado)
-		return
-	}
-	ev.Estado = in.Estado
-	if in.Estado == EstadoFinalizado {
-		ahora := time.Now()
-		ev.FechaRevelado = &ahora
-	}
-	if err := m.DB.Save(&ev).Error; err != nil {
-		respuesta.Error(w, http.StatusInternalServerError, "error_base", "No se pudo cambiar el estado")
+	ev, err := m.eventos().CambiarEstado(r.Context(), ses.UsuarioID, id, in.Estado)
+	if err != nil {
+		m.responderErrorEvento(w, err)
 		return
 	}
 	respuesta.Exito(w, http.StatusOK, ev)
@@ -278,33 +307,64 @@ func (m *Manejador) cambiarEstado(w http.ResponseWriter, r *http.Request) {
 // GET /eventos/{id}
 func (m *Manejador) verEvento(w http.ResponseWriter, r *http.Request) {
 	ses, _ := sesion.De(r) // el guardia ya comprobó el token y el rol
-	uid := ses.UsuarioID
 	id, ok := leerID(w, r)
 	if !ok {
 		return
 	}
-	var ev Evento
-	if err := m.DB.First(&ev, id).Error; err != nil {
-		respuesta.Error(w, http.StatusNotFound, "no_encontrado", "Evento no encontrado")
-		return
-	}
-	if ev.UsuarioID != uid {
-		respuesta.Error(w, http.StatusForbidden, "no_es_tuyo", "El evento no es tuyo")
+	ev, err := m.eventos().Obtener(r.Context(), ses.UsuarioID, id)
+	if err != nil {
+		m.responderErrorEvento(w, err)
 		return
 	}
 	respuesta.Exito(w, http.StatusOK, ev)
 }
 
+// actualizarEvento edita la configuración del evento antes de iniciarlo.
+func (m *Manejador) actualizarEvento(w http.ResponseWriter, r *http.Request) {
+	ses, _ := sesion.De(r)
+	id, ok := leerID(w, r)
+	if !ok {
+		return
+	}
+	var in struct {
+		Nombre             string `json:"nombre"`
+		DisparoPorInvitado int    `json:"disparo_por_invitado"`
+		MaxInvitado        int    `json:"max_invitado"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&in); err != nil {
+		respuesta.Error(w, http.StatusBadRequest, "json_invalido", "El cuerpo no es un JSON válido")
+		return
+	}
+	ev, err := m.eventos().Actualizar(r.Context(), ses.UsuarioID, id, EventoEdicion{
+		Nombre: in.Nombre, DisparoPorInvitado: in.DisparoPorInvitado, MaxInvitado: in.MaxInvitado,
+	})
+	if err != nil {
+		m.responderErrorEvento(w, err)
+		return
+	}
+	respuesta.Exito(w, http.StatusOK, ev)
+}
+
+func (m *Manejador) eliminarEvento(w http.ResponseWriter, r *http.Request) {
+	ses, _ := sesion.De(r)
+	id, ok := leerID(w, r)
+	if !ok {
+		return
+	}
+	if err := m.eventos().Eliminar(r.Context(), ses.UsuarioID, id); err != nil {
+		m.responderErrorEvento(w, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
 // GET /eventos — lista los eventos del anfitrión autenticado.
 func (m *Manejador) listarEventos(w http.ResponseWriter, r *http.Request) {
 	ses, _ := sesion.De(r)
-	var eventos []Evento
-	if err := m.DB.Where("usuario_id = ?", ses.UsuarioID).Order("id DESC").Find(&eventos).Error; err != nil {
-		respuesta.Error(w, http.StatusInternalServerError, "error_base", "No se pudieron listar los eventos")
+	eventos, err := m.eventos().Listar(r.Context(), ses.UsuarioID)
+	if err != nil {
+		m.responderErrorEvento(w, err)
 		return
-	}
-	if eventos == nil {
-		eventos = []Evento{}
 	}
 	respuesta.Exito(w, http.StatusOK, eventos)
 }
@@ -315,9 +375,19 @@ func (m *Manejador) resumenEvento(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	var ev Evento
-	if err := m.DB.First(&ev, id).Error; err != nil {
-		respuesta.Error(w, http.StatusNotFound, "no_encontrado", "Evento no encontrado")
+	ev, err := m.eventos().Resumen(r.Context(), id)
+	if err != nil {
+		m.responderErrorEvento(w, err)
+		return
+	}
+	ses, _ := sesion.De(r)
+	if ses.Rol == sesion.RolAnfitrion {
+		if _, err := m.eventos().Obtener(r.Context(), ses.UsuarioID, id); err != nil {
+			m.responderErrorEvento(w, err)
+			return
+		}
+	} else if ses.Rol != sesion.RolInvitado || ses.InvitadoID == 0 || ses.EventoID != id {
+		respuesta.Error(w, http.StatusForbidden, "evento_no_autorizado", "La sesión no pertenece a este evento")
 		return
 	}
 	respuesta.Exito(w, http.StatusOK, map[string]any{

@@ -5,6 +5,8 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strings"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"gorm.io/driver/postgres"
@@ -30,8 +32,8 @@ func main() {
 
 	// El secreto con el que se firman los tokens. Nunca va escrito en el código.
 	secreto := os.Getenv("CLAVE_FIRMA")
-	if secreto == "" {
-		log.Fatal("falta la variable de entorno CLAVE_FIRMA")
+	if len(secreto) < 32 {
+		log.Fatal("CLAVE_FIRMA debe tener al menos 32 caracteres")
 	}
 
 	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
@@ -52,21 +54,49 @@ func main() {
 	// Admin de prueba (id 1) del Hito 1
 	db.FirstOrCreate(&latent.Usuario{ID: 1}, latent.Usuario{Nombre: "Admin", Rol: "admin"})
 
-	// Las dos cuentas de ejemplo para iniciar sesión (una por rol)
-	if err := sesion.Sembrar(db); err != nil {
+	// Las credenciales de ejemplo solo se crean cuando se habilita la demo.
+	if strings.EqualFold(os.Getenv("MODO_DEMO"), "true") {
+		if err := sesion.Sembrar(db); err != nil {
+			log.Fatal(err)
+		}
+	} else {
+		usuario := os.Getenv("ANFITRION_USUARIO")
+		clave := os.Getenv("ANFITRION_CLAVE")
+		if usuario == "" || clave == "" {
+			log.Fatal("configure MODO_DEMO=true o ANFITRION_USUARIO y ANFITRION_CLAVE")
+		}
+		if err := sesion.SembrarAnfitrion(db, usuario, clave); err != nil {
+			log.Fatal(err)
+		}
+	}
+	// Los eventos conservan una FK al usuario de dominio. En instalaciones
+	// nuevas se crea la fila correspondiente a cada cuenta autenticada.
+	var cuentas []sesion.Usuario
+	if err := db.Find(&cuentas).Error; err != nil {
 		log.Fatal(err)
 	}
-
+	for _, cuenta := range cuentas {
+		usuario := latent.Usuario{ID: cuenta.ID}
+		if err := db.Where("id = ?", cuenta.ID).Attrs(latent.Usuario{Nombre: cuenta.Nombre, Rol: cuenta.Rol}).FirstOrCreate(&usuario).Error; err != nil {
+			log.Fatal(err)
+		}
+	}
 	tokens := sesion.NuevosTokens(secreto)
 
 	r := chi.NewRouter()
 	// r.Use(middleware.TuPrimero, middleware.TuSegundo)  // descomenta con los nombres reales
 	r.Post("/login", (&sesion.Manejador{DB: db, Tokens: tokens}).Login)
-	(&latent.Manejador{DB: db}).Rutas(r, tokens)
+	r.Get("/healthz", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json; charset=utf-8")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"ok":true}` + "\n"))
+	})
+	(&latent.Manejador{DB: db, Tokens: tokens}).Rutas(r, tokens)
 	r.Handle("/*", http.FileServer(http.Dir("web")))
 
 	log.Println("Latent escuchando en :" + puerto)
-	log.Fatal(http.ListenAndServe(":"+puerto, r))
+	server := &http.Server{Addr: ":" + puerto, Handler: r, ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 20 * time.Second, WriteTimeout: 60 * time.Second, IdleTimeout: 60 * time.Second}
+	log.Fatal(server.ListenAndServe())
 }
 
 // Variables de entorno para correr el servidor (PowerShell):

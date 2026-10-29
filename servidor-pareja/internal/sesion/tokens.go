@@ -1,4 +1,3 @@
-
 package sesion
 
 import (
@@ -13,54 +12,47 @@ import (
 const Duracion = time.Hour
 
 // Sesion es lo que el servidor sabe de quien hace la petición.
-// Sale del token: no se consulta la base de datos en cada petición.
 type Sesion struct {
-	UsuarioID uint
+	UsuarioID  uint
 	InvitadoID uint
-	Nombre    string
-	Rol       string
+	EventoID   uint
+	Nombre     string
+	Rol        string
 }
 
-// datos es lo que viaja dentro del token. Cualquiera puede leerlo:
-// va codificado, no cifrado. Lo que nadie puede hacer es cambiarlo.
+// datos viaja firmado en el JWT; su contenido no está cifrado.
 type datos struct {
-	Nombre    string `json:"nombre"`
-	Rol       string `json:"rol"`
+	Nombre     string `json:"nombre"`
+	Rol        string `json:"rol"`
 	InvitadoID uint   `json:"invitado_id,omitempty"`
+	EventoID   uint   `json:"evento_id,omitempty"`
 	jwt.RegisteredClaims
 }
 
-// Tokens emite y revisa tokens con el secreto que recibe.
-type Tokens struct {
-	secreto []byte
-}
+// Tokens emite y revisa tokens con el secreto configurado fuera del código.
+type Tokens struct{ secreto []byte }
 
-// NuevosTokens recibe el secreto de la firma. El secreto llega desde la
-// configuración (la variable de entorno); nunca se escribe en el código.
-func NuevosTokens(secreto string) *Tokens {
-	return &Tokens{secreto: []byte(secreto)}
-}
+func NuevosTokens(secreto string) *Tokens { return &Tokens{secreto: []byte(secreto)} }
 
-// Emitir firma un token para el usuario que acaba de probar quién es.
+// Emitir firma un token para una cuenta que ya comprobó sus credenciales.
 func (t *Tokens) Emitir(u Usuario) (string, error) {
 	ahora := time.Now()
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, datos{
 		Nombre: u.Nombre,
 		Rol:    u.Rol,
 		RegisteredClaims: jwt.RegisteredClaims{
-			Subject:   strconv.Itoa(int(u.ID)),
-			IssuedAt:  jwt.NewNumericDate(ahora),
+			Subject: strconv.Itoa(int(u.ID)), IssuedAt: jwt.NewNumericDate(ahora),
 			ExpiresAt: jwt.NewNumericDate(ahora.Add(Duracion)),
 		},
 	})
 	return token.SignedString(t.secreto)
 }
 
-// EmitirInvitado crea una sesión ligada a un único registro de invitado.
-func (t *Tokens) EmitirInvitado(id uint, nombre string) (string, error) {
+// EmitirInvitado crea una sesión ligada a una persona y un único evento.
+func (t *Tokens) EmitirInvitado(id, eventoID uint, nombre string) (string, error) {
 	ahora := time.Now()
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, datos{
-		Nombre: nombre, Rol: RolInvitado, InvitadoID: id,
+		Nombre: nombre, Rol: RolInvitado, InvitadoID: id, EventoID: eventoID,
 		RegisteredClaims: jwt.RegisteredClaims{
 			Subject: strconv.Itoa(int(id)), IssuedAt: jwt.NewNumericDate(ahora),
 			ExpiresAt: jwt.NewNumericDate(ahora.Add(Duracion)),
@@ -69,11 +61,10 @@ func (t *Tokens) EmitirInvitado(id uint, nombre string) (string, error) {
 	return token.SignedString(t.secreto)
 }
 
-// ErrVencido distingue un token que fue bueno de uno que nunca lo fue.
+// ErrVencido distingue un token válido que expiró de uno inválido.
 var ErrVencido = errors.New("el token está vencido")
 
-// Leer revisa la firma y la fecha de vencimiento. Solo si las dos
-// pasan devuelve la sesión.
+// Leer revisa la firma y la fecha de vencimiento antes de devolver la sesión.
 func (t *Tokens) Leer(texto string) (Sesion, error) {
 	var d datos
 	_, err := jwt.ParseWithClaims(texto, &d,
@@ -91,5 +82,5 @@ func (t *Tokens) Leer(texto string) (Sesion, error) {
 	if err != nil {
 		return Sesion{}, err
 	}
-	return Sesion{UsuarioID: uint(id), InvitadoID: d.InvitadoID, Nombre: d.Nombre, Rol: d.Rol}, nil
+	return Sesion{UsuarioID: uint(id), InvitadoID: d.InvitadoID, EventoID: d.EventoID, Nombre: d.Nombre, Rol: d.Rol}, nil
 }

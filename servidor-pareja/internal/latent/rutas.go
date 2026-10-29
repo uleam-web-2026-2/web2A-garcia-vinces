@@ -9,6 +9,10 @@ import (
 // Rutas registra todas las rutas de Latent y decide cuáles piden token y
 // qué rol puede usar cada una (matriz ruta × rol).
 func (m *Manejador) Rutas(r chi.Router, tokens *sesion.Tokens) {
+	m.Tokens = tokens
+	if m.Eventos == nil {
+		m.Eventos = NuevoServicioEventos(NuevoRepositorioEventos(m.DB))
+	}
 	// Pública: el invitado entra con el código del evento (el QR), sin cuenta.
 	r.Post("/eventos/unirse", m.unirse)
 
@@ -27,6 +31,10 @@ func (m *Manejador) Rutas(r chi.Router, tokens *sesion.Tokens) {
 		r.With(sesion.SoloRol(sesion.RolAnfitrion)).Post("/eventos", m.crearEvento)
 		r.With(sesion.SoloRol(sesion.RolAnfitrion)).Get("/eventos", m.listarEventos)
 		r.With(sesion.SoloRol(sesion.RolAnfitrion)).Get("/eventos/{id}", m.verEvento)
+		r.With(sesion.SoloRol(sesion.RolAnfitrion)).Put("/eventos/{id}", m.actualizarEvento)
+		r.With(sesion.SoloRol(sesion.RolAnfitrion)).Delete("/eventos/{id}", m.eliminarEvento)
+		r.With(sesion.SoloRol(sesion.RolAnfitrion)).Patch("/eventos/{id}", m.cambiarEstado)
+		// Alias de compatibilidad con el contrato del Hito 1.
 		r.With(sesion.SoloRol(sesion.RolAnfitrion)).Patch("/eventos/{id}/estado", m.cambiarEstado)
 	})
 }

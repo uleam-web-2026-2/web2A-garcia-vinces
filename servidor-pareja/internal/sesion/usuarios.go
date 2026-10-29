@@ -2,7 +2,9 @@ package sesion
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
+	"strings"
 
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
@@ -42,20 +44,33 @@ func Sembrar(db *gorm.DB) error {
 		{"luis", RolAnfitrion, "luis-2026"},
 	}
 	for _, e := range ejemplos {
-		// bcrypt calcula el resumen: eso es lo que se guarda.
-		resumen, err := bcrypt.GenerateFromPassword(
-			[]byte(e.clave), bcrypt.DefaultCost)
-		if err != nil {
-			return err
-		}
-		var u Usuario
-		db.Where("nombre = ?", e.nombre).Limit(1).Find(&u)
-		u.Nombre, u.Rol, u.ClaveHash = e.nombre, e.rol, string(resumen)
-		if err := db.Save(&u).Error; err != nil {
+		if err := guardarCuenta(db, e.nombre, e.rol, e.clave); err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+// SembrarAnfitrion crea o renueva una cuenta configurada para el despliegue.
+// La contraseña se recibe del entorno y solo se persiste su resumen bcrypt.
+func SembrarAnfitrion(db *gorm.DB, nombre, clave string) error {
+	if strings.TrimSpace(nombre) == "" || len(clave) < 12 {
+		return errors.New("el usuario anfitrión es obligatorio y la clave debe tener al menos 12 caracteres")
+	}
+	return guardarCuenta(db, strings.TrimSpace(nombre), RolAnfitrion, clave)
+}
+
+func guardarCuenta(db *gorm.DB, nombre, rol, clave string) error {
+	resumen, err := bcrypt.GenerateFromPassword([]byte(clave), bcrypt.DefaultCost)
+	if err != nil {
+		return err
+	}
+	var u Usuario
+	if err := db.Where("nombre = ?", nombre).Limit(1).Find(&u).Error; err != nil {
+		return err
+	}
+	u.Nombre, u.Rol, u.ClaveHash = nombre, rol, string(resumen)
+	return db.Save(&u).Error
 }
 
 // Manejador tiene la única ruta de este paquete: iniciar sesión.
