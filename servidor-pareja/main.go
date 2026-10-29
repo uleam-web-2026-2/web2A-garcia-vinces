@@ -102,4 +102,5 @@ func main() {
 //   $env:PUERTO = "8081"
 //   $env:DATABASE_URL = "postgres://UserDB:12345@localhost:5432/Latent?sslmode=disable"
 //   $env:CLAVE_FIRMA = "Latent2026-ClaveFirma-9xQ4pL7mAB"
+//   $env:MODO_DEMO = "true"
 // URL local: http://localhost:8081
