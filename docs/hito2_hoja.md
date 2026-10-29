@@ -50,4 +50,4 @@ Primero levanten la aplicación y carguen la base desechable con `docs/hito2_dem
 - [x] `npx @redocly/cli lint docs/openapi.yaml --format=stylish` sin avisos.
 - [x] `go test ./...` verde y respaldos en `docs/hito2_capturas/`.
 
-Las imágenes de respaldo se generaron desde las respuestas observadas por la prueba de integración automatizada (`httptest` y SQLite en memoria); se omiten los valores JWT. No son capturas de la interfaz de Bruno. Para la evaluación, ejecuten también la colección en vivo siguiendo `docs/hito2_bruno/README.md`.
+Las capturas en `docs/hito2_capturas/` corresponden a las respuestas en vivo de Bruno y a la ejecución de `go test ./...`. Antes de compartirlas, oculten los valores JWT de las respuestas de preparación y login.

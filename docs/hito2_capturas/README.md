@@ -1,13 +1,6 @@
-# Respaldos de la demostración
+# Capturas de la demostración
 
-`peticion-00.png` a `peticion-06.png` muestran las respuestas observadas por `TestDemoHito2RespuestasDeRolesYTransicion`. `go-test.png` resume el resultado de `go test ./...`. Los archivos `integracion_hito2.txt` y `go_test.txt` conservan la salida textual completa.
+- `0.png` a `6.png`: capturas en vivo de Bruno para la preparación y las seis peticiones. Deben mostrar los estados HTTP 200, 401, 200, 200, 403, 200 y 422, respectivamente.
+- `go-test.png`: captura de la terminal con `go test ./...` ejecutado desde `servidor-pareja`.
 
-Son respaldos generados desde una prueba de integración HTTP en memoria, no capturas de Bruno ni evidencia de un servidor desplegado. Los JWT se omiten. Para regenerar las imágenes después de ejecutar las pruebas:
-
-```powershell
-cd servidor-pareja
-$env:GOCACHE = Join-Path $env:TEMP 'latent-hito2-gocache'
-go test -v ./... 2>&1 | Tee-Object -FilePath '..\docs\hito2_capturas\go_test.txt'
-go test -run TestDemoHito2RespuestasDeRolesYTransicion -v ./internal/latent 2>&1 | Tee-Object -FilePath '..\docs\hito2_capturas\integracion_hito2.txt'
-..\docs\hito2_capturas\generar-capturas.ps1
-```
+Las respuestas de las peticiones 0 y 2 incluyen tokens JWT. Antes de compartir las capturas fuera del equipo, oculten el valor del token y dejen visible el estado HTTP y la respuesta relevante.
