@@ -100,6 +100,6 @@ func main() {
 
 // Variables de entorno para correr el servidor (PowerShell):
 //   $env:PUERTO = "8081"
-//   $env:DATABASE_URL = "postgres://UserDB:SU_CLAVE@localhost:5432/Latent?sslmode=disable"
+//   $env:DATABASE_URL = "postgres://UserDB:SU_CLAVE@localhost:5432/LatentDemo?sslmode=disable"
 //   $env:CLAVE_FIRMA = "una-frase-larga-que-solo-usted-conoce"
 // URL local: http://localhost:8081

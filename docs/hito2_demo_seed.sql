@@ -1,4 +1,4 @@
--- SOLO para una base Latent desechable de demostración local.
+-- SOLO para la base LatentDemo desechable de demostración local.
 -- La aplicación debe haber arrancado una vez: así existen tablas y cuentas.
 -- Nunca ejecutes este archivo en una base desplegada con datos reales.
 BEGIN;
