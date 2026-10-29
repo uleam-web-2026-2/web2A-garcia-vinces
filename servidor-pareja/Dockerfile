@@ -8,6 +8,5 @@ RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/latent .
 FROM gcr.io/distroless/static-debian12:nonroot
 WORKDIR /app
 COPY --from=build /out/latent /app/latent
-COPY --from=build /src/web /app/web
 EXPOSE 8081
 ENTRYPOINT ["/app/latent"]

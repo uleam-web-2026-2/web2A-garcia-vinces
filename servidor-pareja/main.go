@@ -92,7 +92,6 @@ func main() {
 		_, _ = w.Write([]byte(`{"ok":true}` + "\n"))
 	})
 	(&latent.Manejador{DB: db, Tokens: tokens}).Rutas(r, tokens)
-	r.Handle("/*", http.FileServer(http.Dir("web")))
 
 	log.Println("Latent escuchando en :" + puerto)
 	server := &http.Server{Addr: ":" + puerto, Handler: r, ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 20 * time.Second, WriteTimeout: 60 * time.Second, IdleTimeout: 60 * time.Second}

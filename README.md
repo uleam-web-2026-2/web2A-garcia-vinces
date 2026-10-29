@@ -21,9 +21,7 @@ $env:MODO_DEMO = "true"
 go run .
 ```
 
-Abre `http://localhost:8081`. La aplicación web y la API usan el mismo servidor. La cuenta anfitrión de demostración es `luis / luis-2026`; el login de ejemplo para validar roles es `ana / ana-2026`. **No habilites `MODO_DEMO` en una instancia pública.**
-
-La web cachea su estructura después de la primera visita. Si se pierde la señal, guarda la foto preparada en IndexedDB y la intenta sincronizar cuando vuelve la conexión. El servidor valida siempre la cuota; una foto offline no queda confirmada hasta que la API la acepta.
+La guía del Hito 2 evalúa la API mediante peticiones y pruebas; no pide una interfaz web. Comprueba `http://localhost:8081/healthz` y ejecuta la colección de [`docs/hito2_bruno/`](docs/hito2_bruno/) en Bruno. La cuenta anfitrión de demostración es `luis / luis-2026`; el login adicional de ejemplo es `ana / ana-2026`. **No habilites `MODO_DEMO` en una instancia pública.**
 
 ## Despliegue con Docker Compose
 
@@ -73,7 +71,6 @@ Las pruebas usan SQLite temporal; el servidor desplegado usa PostgreSQL. Las cre
 - `servidor-pareja/internal/latent/`: HTTP, reglas de eventos, repositorio y modelo.
 - `servidor-pareja/internal/sesion/`: login, bcrypt, JWT y permisos por rol.
 - `servidor-pareja/internal/respuesta/`: formato JSON común.
-- `servidor-pareja/web/`: aplicación móvil/web y soporte offline básico.
 - `compose.yaml` y `servidor-pareja/Dockerfile`: despliegue local autocontenido.
 
 El trabajo anterior está en [el repositorio previo](https://github.com/Jeanvncs/-web2A-Garcia-Vinces).
