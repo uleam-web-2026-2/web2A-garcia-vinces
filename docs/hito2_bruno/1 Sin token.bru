@@ -1,0 +1,18 @@
+meta {
+  name: 1 GET fotos sin token · 401
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{baseUrl}}/eventos/{{eventIdCreado}}/fotos
+  body: none
+  auth: none
+}
+
+tests {
+  test("sin sesión la API responde 401", function () {
+    expect(res.getStatus()).to.equal(401);
+    expect(res.getBody().error.codigo).to.equal("no_autenticado");
+  });
+}

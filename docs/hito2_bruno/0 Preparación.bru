@@ -1,0 +1,33 @@
+meta {
+  name: 0 Preparación · registrar invitado
+  type: http
+  seq: 0
+}
+
+post {
+  url: {{baseUrl}}/eventos/unirse
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "codigo_acceso": "{{codigoAcceso}}",
+    "nombre": "Carlos",
+    "pin": "0427"
+  }
+}
+
+script:post-response {
+  const body = res.getBody();
+  if (res.getStatus() === 200 && body.datos && body.datos.token) {
+    bru.setEnvVar("tokenInvitado", body.datos.token);
+  }
+}
+
+tests {
+  test("el invitado se registra y recibe un token", function () {
+    expect(res.getStatus()).to.equal(200);
+    expect(res.getBody().datos.token).to.be.a("string");
+  });
+}

@@ -1,22 +1,43 @@
-# Decisiones de diseño — Mesa de Ayuda
+# Decisiones de diseño — Latent
 
-## D1 · Orden de los middleware
+## Semana 7 D1 · Nivel de acceso de cada ruta
 
-- **Decisión:** Registro afuera, Recuperación adentro (`r.Use(middleware.Registro); r.Use(middleware.Recuperacion)`).
-- **Por qué:** queremos que toda petición quede registrada en el log, incluidas las que terminan en pánico. Con este orden, Registro sigue vivo por fuera cuando ocurre un pánico, porque Recuperación ya lo atrapó antes de que suba más allá.
-- **Alternativa descartada:** Recuperación afuera, Registro adentro. Con ese orden, el pánico salta por encima de Registro (que no tiene su propio `recover()`), y esa petición nunca queda anotada en el log — el servidor responde 500 pero el registro no se entera.
-- **Cómo lo comprobamos:** con `GET /explotar` en ambos órdenes. En el primer caso solo apareció la línea del PÁNICO; en el segundo aparecieron ambas líneas (PÁNICO y el registro con el 500).
+| Ruta | Nivel | Por qué |
+| --- | --- | --- |
+| `POST /login` | Pública | Una cuenta anfitrión obtiene su sesión aquí. Las credenciales se verifican con bcrypt y el servidor firma un JWT. |
+| `POST /eventos/unirse` | Pública | El invitado llega desde un QR/código, sin crear cuenta. El servidor valida nombre y PIN, registra la plaza y emite un token ligado a ese invitado y a ese evento. |
+| `GET /eventos` | Con sesión, solo anfitrión | Solo el anfitrión puede consultar la lista de los eventos que administra. Un invitado no recibe códigos de acceso de otras fiestas. |
+| `GET /eventos/{id}` | Con sesión y propietario, solo anfitrión | El detalle incluye el código de acceso y la configuración privada del evento. |
+| `POST /eventos` | Con sesión, solo anfitrión | Crear y configurar una fiesta es una acción del anfitrión. |
+| `PUT /eventos/{id}` | Con sesión y propietario, solo anfitrión | Solo se ajusta una fiesta propia que aún no empezó. |
+| `PATCH /eventos/{id}` | Con sesión y propietario, solo anfitrión | El anfitrión controla el inicio, cierre y cancelación. Invitados no pueden alterar el ciclo de vida. |
+| `DELETE /eventos/{id}` | Con sesión y propietario, solo anfitrión | Solo se elimina un evento propio sin invitados ni fotos y que no esté activo o revelado; esto protege el álbum y su auditoría. |
+| `GET /eventos/{id}/resumen` y `/fotos` | Con sesión y pertenencia | El anfitrión dueño o una persona con token de invitado de esa fiesta puede consultar sus datos. El invitado ve las fotos después del revelado. |
+| `POST /fotos` | Con sesión, solo invitado | El JWT incluye el ID del invitado; el servidor no confía en un ID que el cliente pueda cambiar para gastar la cuota de otra persona. |
 
-## D2 · Código para JSON roto frente a datos inválidos
+## Semana 7 D2 · La ruta de un solo rol
 
-- **Decisión:** JSON roto → 400 (`cuerpo_malformado`). JSON válido pero que viola una regla de negocio (título corto, prioridad inválida) → 422 (`datos_invalidos`).
-- **Por qué:** son dos tipos de error distintos para el cliente. Un 400 significa "no armaste bien la petición" (problema de forma/sintaxis); un 422 significa "la petición está bien armada, pero el dato en sí no cumple una regla" (problema semántico). Separarlos le da al cliente información más precisa sobre qué corregir.
-- **Alternativa descartada:** usar 400 para ambos casos. Es más simple, pero mezcla dos causas de error distintas bajo el mismo código, y le quita al cliente la posibilidad de distinguir "mi código de programación está mal" de "el usuario ingresó un dato inválido".
-- **Cómo lo comprobamos:** con tres peticiones POST /tickets: una con JSON roto (`400`), una con título corto (`422`), y una con prioridad inválida (`422`).
-## D3 · (pendiente — la eligen ustedes)
-## D3 · Campos desconocidos en el body
+- **Decisión:** `PATCH /eventos/{id}` y las operaciones de escritura del evento son exclusivas del anfitrión propietario; `POST /fotos` es exclusivo de un invitado con sesión.
+- **Por qué:** el anfitrión responde por el inicio y final de la fiesta; cada invitado solo administra sus propias capturas. Si cualquier invitado pudiera cambiar el estado, podría revelar o cancelar el álbum antes de tiempo. Si pudiera presentar el ID de otra persona, podría gastar su cuota de fotos.
+- **Qué descartamos:** un único rol genérico para todos. Haría que el cliente pudiera intentar acciones ajenas al negocio y trasladaría la autorización a la interfaz, que se puede modificar.
+- **Cómo se aplica:** primero `tokens.Autenticar` valida la firma y expiración; luego `sesion.SoloRol` restringe rol y los manejadores comprueban propiedad o pertenencia al evento.
 
-- **Decisión:** rechazar el body si trae un campo que `entradaCrear` no reconoce (`titulo`, `prioridad`), usando `dec.DisallowUnknownFields()`.
-- **Por qué:** para que el cliente sepa exactamente qué pasó con su petición en vez de que su intento se ignore en silencio. Si alguien manda un campo como `estado` que no le corresponde fijar al crear, prefiero avisarle con un error claro en vez de que el servidor lo descarte sin decir nada.
-- **Alternativa descartada:** ignorar los campos desconocidos (comportamiento por defecto de Go). Es más tolerante, pero deja al cliente sin saber si su dato se aplicó o no.
-- **Cómo lo comprobamos:** POST /tickets con `{"titulo":"Pantalla rota","prioridad":"alta","estado":"cerrado"}` → debería dar 400, `cuerpo_malformado`.
+## Semana 7 D3 · La transición prohibida
+
+- **Transición:** `finalizado → activo`.
+- **Por qué el negocio no la permite:** al finalizar, el anfitrión revela un álbum cerrado. Volver a abrir la cámara permitiría añadir fotos después del revelado y rompería la cuota y el orden de la fiesta.
+- **Qué responde y dónde se valida:** `422 Unprocessable Entity`, código `transicion_prohibida`. `ServicioEventos.CambiarEstado` consulta el mapa `transiciones` de `modelos.go` antes de guardar. La ruta protegida está en `internal/latent/rutas.go`.
+
+## Semana 8 · Estructura en capas
+
+El flujo del cambio de estado atraviesa tres responsabilidades:
+
+1. **HTTP y autenticación — `manejadores.go`, `rutas.go`, `internal/sesion/`:** Chi valida la sesión y el rol; el manejador interpreta el JSON, convierte errores de dominio en HTTP y serializa la respuesta común.
+2. **Reglas del negocio — `eventos_servicio.go`:** crea, edita, lista, consulta, elimina y transiciona eventos. Aquí se valida la cuota de configuración, la propiedad, los estados y las condiciones para borrar. No depende de Chi ni de GORM.
+3. **Persistencia — `eventos_repositorio.go`:** define `RepositorioEventos` e implementa sus operaciones con GORM. Traduce `record not found` al error de dominio `ErrEventoNoEncontrado`.
+
+`modelos.go` declara las entidades y la máquina de estados. Para cambiar el motor de datos se reemplaza la implementación del repositorio, manteniendo las reglas de `eventos_servicio.go` y los formatos HTTP. La persistencia usa PostgreSQL en ejecución y SQLite en memoria para pruebas de integración.
+
+## Semana 7 D4 · JSON mal formado y datos de negocio
+
+JSON que no se puede decodificar responde `400 json_invalido`. Un evento con nombre vacío o con cuotas fuera de rango responde `400 evento_invalido`; una transición desconocida o prohibida responde `422`. La aplicación distingue forma de la petición, datos del evento y regla de ciclo de vida para que el cliente reciba el motivo concreto.

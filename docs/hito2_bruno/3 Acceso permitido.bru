@@ -1,0 +1,22 @@
+meta {
+  name: 3 GET fotos como invitado · 200
+  type: http
+  seq: 3
+}
+
+get {
+  url: {{baseUrl}}/eventos/{{eventIdCreado}}/fotos
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{tokenInvitado}}
+}
+
+tests {
+  test("el invitado autenticado consulta su álbum", function () {
+    expect(res.getStatus()).to.equal(200);
+    expect(res.getBody().ok).to.equal(true);
+  });
+}

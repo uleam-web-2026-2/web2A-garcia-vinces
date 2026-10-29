@@ -1,0 +1,6 @@
+{
+  "version": "1",
+  "name": "Latent Hito 2",
+  "type": "collection",
+  "ignore": ["node_modules", ".git"]
+}

@@ -2,83 +2,78 @@
 
 **Aplicaciones Web II · ULEAM · Web II A · Período 2026-2**
 
-## Integrantes
-
 | Integrante | Usuario de GitHub | Paralelo |
 | --- | --- | --- |
 | Ordeoñez Jostin Dionicio | Jostin12Garcia | Web II A |
 | Vinces Chonillo Jean Carlos | Jeanvncs | Web II A |
 
-Latent es una cámara desechable digital para bodas, cumpleaños y fiestas. El anfitrión crea un evento y comparte su código; los invitados entran desde el celular y cada persona tiene un número limitado de fotos. Al terminar la fiesta, el anfitrión revela el álbum completo.
+Latent es una cámara desechable digital para fiestas. El anfitrión crea el evento y comparte un código QR; cada invitado entra con nombre y PIN, tiene una cuota de fotos controlada por el servidor y ve el álbum cuando el anfitrión finaliza la fiesta.
 
-## Aplicación web
+## Desarrollo local
 
-La interfaz está en `servidor-pareja/web/` y se sirve desde el mismo servidor Go:
-
-- Portada de Latent y acceso para anfitriones e invitados.
-- Panel del anfitrión para crear eventos, consultar el código, iniciar o cancelar la fiesta y revelar el álbum.
-- Cámara móvil para invitados, con vista previa, límite de tamaño y contador de fotos.
-- Galería de fotos para anfitrión e invitados.
-
-Las fotos seleccionadas se envían al servidor como imágenes en base64 dentro de `url_archivo`. Para la demostración, cada imagen puede pesar hasta 4 MB.
-
-## Requisitos
-
-- Go (versión estable)
-- PostgreSQL
-
-Crea una base de datos llamada `Latent`. Desde PowerShell, en la carpeta `servidor-pareja`, configura el entorno y arranca el servidor:
+Requisitos: Go 1.27.1 o posterior y PostgreSQL 17 o posterior. Crea la base `Latent` y, desde PowerShell, en `servidor-pareja`, configura el entorno:
 
 ```powershell
 $env:PUERTO = "8081"
 $env:DATABASE_URL = "postgres://usuario:clave@localhost:5432/Latent?sslmode=disable"
-$env:CLAVE_FIRMA = "una-frase-larga-para-firmar-tokens"
+$env:CLAVE_FIRMA = "reemplaza-por-un-secreto-aleatorio-de-32-caracteres"
+$env:MODO_DEMO = "true"
 go run .
 ```
 
-Abre `http://localhost:8081` en el navegador. La página y la API usan el mismo puerto.
+Abre `http://localhost:8081`. La aplicación web y la API usan el mismo servidor. La cuenta anfitrión de demostración es `luis / luis-2026`; el login de ejemplo para validar roles es `ana / ana-2026`. **No habilites `MODO_DEMO` en una instancia pública.**
 
-## Cuentas de demostración
+La web cachea su estructura después de la primera visita. Si se pierde la señal, guarda la foto preparada en IndexedDB y la intenta sincronizar cuando vuelve la conexión. El servidor valida siempre la cuota; una foto offline no queda confirmada hasta que la API la acepta.
 
-El servidor crea estas cuentas de ejemplo al iniciar:
+## Despliegue con Docker Compose
 
-| Rol | Usuario | Contraseña |
-| --- | --- | --- |
-| Anfitrión | `luis` | `luis-2026` |
-| Invitada | `ana` | `ana-2026` |
+1. Copia `.env.example` como `.env` en la raíz.
+2. Cambia `POSTGRES_PASSWORD` y `CLAVE_FIRMA` por valores largos y aleatorios. Mantén `DATABASE_URL` sincronizada con el usuario, contraseña y base configurados para PostgreSQL.
+3. Para una instancia de producción, establece `MODO_DEMO=false`, `ANFITRION_USUARIO` y `ANFITRION_CLAVE` (mínimo 12 caracteres). Termina TLS en un proxy HTTPS delante del puerto de la aplicación.
+4. Ejecuta `docker compose up --build -d` y verifica `http://localhost:8081/healthz`.
 
-El flujo de invitados solicita además el código de evento, un nombre y un PIN de cuatro dígitos. Estas credenciales solo sirven para demostraciones locales.
+Compose conserva la base en un volumen nombrado y no publica el puerto de PostgreSQL al host. La imagen de la aplicación corre sin root. No uses `go run . -reset` ni `docs/hito2_demo_seed.sql` sobre datos desplegados: `-reset` borra las tablas y el seed altera eventos de IDs fijos.
 
-## Rutas principales
+### Límite actual de almacenamiento de fotos
 
-| Método | Ruta | Acceso |
-| --- | --- | --- |
-| `POST` | `/login` | Público; devuelve un token |
-| `POST` | `/eventos/unirse` | Público; registra al invitado con código, nombre y PIN |
-| `GET` | `/eventos` | Anfitrión; lista sus eventos |
-| `POST` | `/eventos` | Anfitrión; crea un evento |
-| `GET` | `/eventos/{id}` | Anfitrión propietario; consulta un evento |
-| `PATCH` | `/eventos/{id}/estado` | Anfitrión propietario; cambia el estado |
-| `GET` | `/eventos/{id}/resumen` | Usuario autenticado; devuelve los datos de cámara necesarios |
-| `GET` | `/eventos/{id}/fotos` | Usuario autenticado; consulta la galería |
-| `POST` | `/fotos` | Invitado autenticado; guarda una foto |
+Para el prototipo, cada foto puede enviarse como data URL de hasta 4 MiB y se guarda en PostgreSQL junto a sus metadatos. El volumen de PostgreSQL conserva esas fotos en el despliegue Compose y las copias de seguridad de la base las incluyen. Para abrir el servicio a eventos grandes o tráfico público, el siguiente paso es mover los bytes a almacenamiento de objetos privado (S3 compatible) y guardar en PostgreSQL solo claves y URLs firmadas; el límite por invitado reduce el crecimiento, pero no reemplaza ese almacenamiento.
 
-Las rutas protegidas usan `Authorization: Bearer <token>`. `CLAVE_FIRMA`, `DATABASE_URL` y `PUERTO` se leen del entorno; el servidor no carga archivos `.env` automáticamente.
+## API y entregables del Hito 2
 
-## Repositorio
+- Contrato OpenAPI: [`docs/openapi.yaml`](docs/openapi.yaml)
+- Documentación navegable: [`docs/api.html`](docs/api.html)
+- Hoja para la demostración: [`docs/hito2_hoja.md`](docs/hito2_hoja.md)
+- Colección Bruno y entorno local: [`docs/hito2_bruno/`](docs/hito2_bruno/)
+- SQL de datos de demostración descartables: [`docs/hito2_demo_seed.sql`](docs/hito2_demo_seed.sql)
+- Evidencias: [`docs/hito2_capturas/`](docs/hito2_capturas/)
+- Roles, transición y capas: [`servidor-pareja/docs/decisiones.md`](servidor-pareja/docs/decisiones.md)
 
-- `servidor-pareja/main.go`: configuración, migración y arranque del servidor.
-- `servidor-pareja/internal/latent/`: eventos, invitados, fotos y rutas de la API.
-- `servidor-pareja/internal/sesion/`: autenticación, tokens y roles.
-- `servidor-pareja/web/`: interfaz web.
-- `docs/`: ficha del negocio, addendum técnico y capturas del Hito 1.
+Rutas principales: login, unión de invitado, CRUD de eventos, cambio de estado, resumen, galería y registro de fotos. Las rutas privadas usan `Authorization: Bearer <token>` y la API responde errores con una envoltura `{ok:false,error:{codigo,mensaje}}`.
 
-## Colaboración
+## Pruebas y contrato
 
-El repositorio recomienda al menos un commit de cada integrante por taller. Incluyan en el cuerpo del commit una línea con la herramienta de IA usada y para qué parte, y no suban credenciales reales.
+Desde `servidor-pareja`:
 
+```powershell
+go test ./...
+go build ./...
+```
 
-## Historial previo
+Desde la raíz del repositorio:
+
+```powershell
+npx @redocly/cli lint docs/openapi.yaml --format=stylish
+npx @redocly/cli build-docs docs/openapi.yaml -o docs/api.html
+```
+
+Las pruebas usan SQLite temporal; el servidor desplegado usa PostgreSQL. Las credenciales de demo se guardan con bcrypt; nunca subas `.env` ni credenciales reales.
+
+## Estructura
+
+- `servidor-pareja/internal/latent/`: HTTP, reglas de eventos, repositorio y modelo.
+- `servidor-pareja/internal/sesion/`: login, bcrypt, JWT y permisos por rol.
+- `servidor-pareja/internal/respuesta/`: formato JSON común.
+- `servidor-pareja/web/`: aplicación móvil/web y soporte offline básico.
+- `compose.yaml` y `servidor-pareja/Dockerfile`: despliegue local autocontenido.
 
 El trabajo anterior está en [el repositorio previo](https://github.com/Jeanvncs/-web2A-Garcia-Vinces).
-

@@ -1,0 +1,28 @@
+meta {
+  name: 6 PATCH transición prohibida · 422
+  type: http
+  seq: 6
+}
+
+patch {
+  url: {{baseUrl}}/eventos/{{eventIdFinalizado}}
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{tokenAnfitrion}}
+}
+
+body:json {
+  {
+    "estado": "activo"
+  }
+}
+
+tests {
+  test("un evento finalizado no vuelve a activo", function () {
+    expect(res.getStatus()).to.equal(422);
+    expect(res.getBody().error.codigo).to.equal("transicion_prohibida");
+  });
+}

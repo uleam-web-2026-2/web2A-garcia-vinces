@@ -1,0 +1,28 @@
+meta {
+  name: 4 PATCH como invitado · 403
+  type: http
+  seq: 4
+}
+
+patch {
+  url: {{baseUrl}}/eventos/{{eventIdCreado}}
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{tokenInvitado}}
+}
+
+body:json {
+  {
+    "estado": "activo"
+  }
+}
+
+tests {
+  test("un invitado no administra estados", function () {
+    expect(res.getStatus()).to.equal(403);
+    expect(res.getBody().error.codigo).to.equal("rol_no_permitido");
+  });
+}

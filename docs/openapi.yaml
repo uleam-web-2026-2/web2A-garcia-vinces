@@ -1,0 +1,473 @@
+openapi: 3.1.0
+info:
+  title: Latent API
+  version: 1.0.0
+  description: >-
+    API de Latent, cámara desechable digital para eventos. El anfitrión crea y
+    controla el evento; los invitados entran con código, nombre y PIN. Cada
+    invitado tiene una cuota de fotos validada por el servidor. Los invitados
+    solo pueden consultar el álbum de los eventos en los que se registraron.
+servers:
+  - url: http://localhost:8081
+    description: Desarrollo local y demostración del Hito 2
+paths:
+  /healthz:
+    get:
+      operationId: healthCheck
+      summary: Comprueba si el proceso HTTP está disponible
+      security: []
+      responses:
+        '200':
+          description: Proceso disponible
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok]
+                properties:
+                  ok: { type: boolean, const: true }
+        '400':
+          description: El servidor HTTP rechazó una petición mal formada antes del enrutamiento
+  /login:
+    post:
+      operationId: iniciarSesion
+      summary: Entrega un JWT a una cuenta de ejemplo
+      description: Las credenciales de demostración son ana/ana-2026 y luis/luis-2026.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/LoginRequest' }
+      responses:
+        '200':
+          description: Inicio de sesión correcto
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/LoginResponse' }
+        '400': { $ref: '#/components/responses/Error400' }
+        '401': { $ref: '#/components/responses/Error401' }
+        '500': { $ref: '#/components/responses/Error500' }
+  /eventos:
+    get:
+      operationId: listarEventos
+      summary: Lista los eventos del anfitrión autenticado
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: Lista de eventos (puede estar vacía)
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/RespuestaBase'
+                  - type: object
+                    properties:
+                      datos:
+                        type: array
+                        items: { $ref: '#/components/schemas/Evento' }
+        '401': { $ref: '#/components/responses/Error401' }
+        '403': { $ref: '#/components/responses/Error403' }
+        '500': { $ref: '#/components/responses/Error500' }
+    post:
+      operationId: crearEvento
+      summary: Crea un evento en estado creado
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/EventoNuevo' }
+      responses:
+        '201':
+          description: Evento creado con código de acceso
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RespuestaEvento' }
+        '400': { $ref: '#/components/responses/Error400' }
+        '401': { $ref: '#/components/responses/Error401' }
+        '403': { $ref: '#/components/responses/Error403' }
+        '500': { $ref: '#/components/responses/Error500' }
+  /eventos/unirse:
+    post:
+      operationId: unirseAEvento
+      summary: Registra a un invitado y entrega un JWT ligado a su evento
+      description: El mismo nombre y PIN recuperan el registro de invitado sin consumir otra plaza.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/InvitadoNuevo' }
+      responses:
+        '200':
+          description: Invitado registrado y token emitido
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/UnionResponse' }
+        '400': { $ref: '#/components/responses/Error400' }
+        '401': { $ref: '#/components/responses/Error401' }
+        '404': { $ref: '#/components/responses/Error404' }
+        '409': { $ref: '#/components/responses/Error409' }
+        '500': { $ref: '#/components/responses/Error500' }
+  /eventos/{id}:
+    parameters:
+      - $ref: '#/components/parameters/EventoId'
+    get:
+      operationId: verEvento
+      summary: Consulta un evento propio
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: Evento solicitado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RespuestaEvento' }
+        '400': { $ref: '#/components/responses/Error400' }
+        '401': { $ref: '#/components/responses/Error401' }
+        '403': { $ref: '#/components/responses/Error403' }
+        '404': { $ref: '#/components/responses/Error404' }
+    put:
+      operationId: actualizarEvento
+      summary: Actualiza un evento que todavía está creado
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/EventoNuevo' }
+      responses:
+        '200':
+          description: Evento actualizado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RespuestaEvento' }
+        '400': { $ref: '#/components/responses/Error400' }
+        '401': { $ref: '#/components/responses/Error401' }
+        '403': { $ref: '#/components/responses/Error403' }
+        '404': { $ref: '#/components/responses/Error404' }
+        '409': { $ref: '#/components/responses/Error409' }
+        '500': { $ref: '#/components/responses/Error500' }
+    patch:
+      operationId: cambiarEstadoEvento
+      summary: Cambia el estado respetando la máquina de estados
+      description: >-
+        Transiciones permitidas: creado a activo; activo a finalizado o cancelado.
+        Una transición prohibida, como finalizado a activo, responde 422.
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CambioEstado' }
+      responses:
+        '200':
+          description: Evento con el nuevo estado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RespuestaEvento' }
+        '400': { $ref: '#/components/responses/Error400' }
+        '401': { $ref: '#/components/responses/Error401' }
+        '403': { $ref: '#/components/responses/Error403' }
+        '404': { $ref: '#/components/responses/Error404' }
+        '422': { $ref: '#/components/responses/Error422' }
+        '500': { $ref: '#/components/responses/Error500' }
+    delete:
+      operationId: eliminarEvento
+      summary: Elimina un evento vacío que no se ha iniciado
+      description: Solo se eliminan eventos en estado creado o cancelado sin invitados ni fotos.
+      security: [{ bearerAuth: [] }]
+      responses:
+        '204': { description: Evento eliminado; cuerpo vacío }
+        '400': { $ref: '#/components/responses/Error400' }
+        '401': { $ref: '#/components/responses/Error401' }
+        '403': { $ref: '#/components/responses/Error403' }
+        '404': { $ref: '#/components/responses/Error404' }
+        '409': { $ref: '#/components/responses/Error409' }
+        '500': { $ref: '#/components/responses/Error500' }
+  /eventos/{id}/estado:
+    parameters:
+      - $ref: '#/components/parameters/EventoId'
+    patch:
+      operationId: cambiarEstadoEventoCompatibilidad
+      summary: Cambia el estado del evento (alias compatible con Hito 1)
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CambioEstado' }
+      responses:
+        '200':
+          description: Evento con el nuevo estado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RespuestaEvento' }
+        '401': { $ref: '#/components/responses/Error401' }
+        '403': { $ref: '#/components/responses/Error403' }
+        '404': { $ref: '#/components/responses/Error404' }
+        '422': { $ref: '#/components/responses/Error422' }
+  /eventos/{id}/resumen:
+    parameters:
+      - $ref: '#/components/parameters/EventoId'
+    get:
+      operationId: resumenEvento
+      summary: Obtiene los datos mínimos de un evento permitido para esta sesión
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: Datos básicos del evento
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/RespuestaBase'
+                  - type: object
+                    properties:
+                      datos: { $ref: '#/components/schemas/ResumenEvento' }
+        '401': { $ref: '#/components/responses/Error401' }
+        '403': { $ref: '#/components/responses/Error403' }
+        '404': { $ref: '#/components/responses/Error404' }
+  /eventos/{id}/fotos:
+    parameters:
+      - $ref: '#/components/parameters/EventoId'
+    get:
+      operationId: listarFotosEvento
+      summary: Lista fotos de un evento autorizado
+      description: Los invitados solo reciben el álbum cuando el anfitrión finaliza el evento.
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: Fotos visibles para esta sesión
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/RespuestaBase'
+                  - type: object
+                    properties:
+                      datos:
+                        type: array
+                        items: { $ref: '#/components/schemas/Foto' }
+        '401': { $ref: '#/components/responses/Error401' }
+        '403': { $ref: '#/components/responses/Error403' }
+        '404': { $ref: '#/components/responses/Error404' }
+        '500': { $ref: '#/components/responses/Error500' }
+  /fotos:
+    post:
+      operationId: crearFoto
+      summary: Guarda una foto si la fiesta está activa y queda cuota
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/FotoNueva' }
+      responses:
+        '201':
+          description: Foto guardada y sincronizada
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/RespuestaBase'
+                  - type: object
+                    properties:
+                      datos: { $ref: '#/components/schemas/Foto' }
+        '200':
+          description: Reintento idempotente de una foto ya guardada con el mismo UUID
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/RespuestaBase'
+                  - type: object
+                    properties:
+                      datos: { $ref: '#/components/schemas/Foto' }
+        '400': { $ref: '#/components/responses/Error400' }
+        '401': { $ref: '#/components/responses/Error401' }
+        '403': { $ref: '#/components/responses/Error403' }
+        '404': { $ref: '#/components/responses/Error404' }
+        '413':
+          description: El cuerpo supera el máximo de 5 MiB
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '500': { $ref: '#/components/responses/Error500' }
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Token recibido de POST /login o POST /eventos/unirse.
+  parameters:
+    EventoId:
+      name: id
+      in: path
+      required: true
+      description: Identificador entero positivo del evento.
+      schema: { type: integer, minimum: 1 }
+  schemas:
+    RespuestaBase:
+      type: object
+      required: [ok, datos]
+      properties:
+        ok: { type: boolean, const: true }
+        datos: {}
+    ErrorResponse:
+      type: object
+      required: [ok, error]
+      properties:
+        ok: { type: boolean, const: false }
+        error:
+          type: object
+          required: [codigo, mensaje]
+          properties:
+            codigo: { type: string }
+            mensaje: { type: string }
+    EventoEstado:
+      type: string
+      enum: [creado, activo, finalizado, cancelado]
+    Evento:
+      type: object
+      required: [id, nombre, codigo_acceso, disparo_por_invitado, max_invitado, estado, usuario_id]
+      properties:
+        id: { type: integer, readOnly: true }
+        nombre: { type: string, minLength: 1, maxLength: 100 }
+        codigo_acceso: { type: string, readOnly: true, pattern: '^EVT-[A-Z2-9]{6}$' }
+        disparo_por_invitado: { type: integer, minimum: 1, maximum: 20 }
+        max_invitado: { type: integer, minimum: 1, maximum: 500 }
+        estado: { $ref: '#/components/schemas/EventoEstado' }
+        fecha_revelado: { type: [string, 'null'], format: date-time }
+        usuario_id: { type: integer, readOnly: true }
+    EventoNuevo:
+      type: object
+      additionalProperties: false
+      required: [nombre, disparo_por_invitado, max_invitado]
+      properties:
+        nombre: { type: string, minLength: 1, maxLength: 100 }
+        disparo_por_invitado: { type: integer, minimum: 1, maximum: 20 }
+        max_invitado: { type: integer, minimum: 1, maximum: 500 }
+    CambioEstado:
+      type: object
+      additionalProperties: false
+      required: [estado]
+      properties:
+        estado: { $ref: '#/components/schemas/EventoEstado' }
+    InvitadoNuevo:
+      type: object
+      additionalProperties: false
+      required: [codigo_acceso, nombre, pin]
+      properties:
+        codigo_acceso: { type: string, pattern: '^EVT-[A-HJ-NP-Z2-9]{6}$' }
+        nombre: { type: string, minLength: 1, maxLength: 80 }
+        pin: { type: string, pattern: '^[0-9]{4}$' }
+    Invitado:
+      type: object
+      required: [id, nombre, fotos_tomadas, evento_id]
+      properties:
+        id: { type: integer, readOnly: true }
+        nombre: { type: string }
+        fotos_tomadas: { type: integer, minimum: 0 }
+        evento_id: { type: integer }
+    FotoNueva:
+      type: object
+      additionalProperties: false
+      required: [uuid, url_archivo, invitado_id]
+      properties:
+        uuid: { type: string, minLength: 1, maxLength: 80 }
+        url_archivo:
+          type: string
+          maxLength: 4194304
+          pattern: '^(data:image/(jpeg|png|webp);base64,|https://|/archivos/)'
+          description: Imagen JPEG, PNG o WebP en data URL (máximo 4 MiB), o URL HTTPS/ruta de almacenamiento.
+        invitado_id: { type: integer, minimum: 1 }
+    Foto:
+      type: object
+      required: [id, uuid, url_archivo, sincronizado, evento_id, invitado_id]
+      properties:
+        id: { type: integer, readOnly: true }
+        uuid: { type: string }
+        url_archivo: { type: string }
+        sincronizado: { type: boolean }
+        evento_id: { type: integer }
+        invitado_id: { type: integer }
+    ResumenEvento:
+      type: object
+      required: [id, nombre, estado, disparo_por_invitado]
+      properties:
+        id: { type: integer }
+        nombre: { type: string }
+        estado: { $ref: '#/components/schemas/EventoEstado' }
+        disparo_por_invitado: { type: integer }
+    LoginRequest:
+      type: object
+      additionalProperties: false
+      required: [usuario, clave]
+      properties:
+        usuario: { type: string, minLength: 1 }
+        clave: { type: string, minLength: 1, format: password }
+    LoginResponse:
+      allOf:
+        - $ref: '#/components/schemas/RespuestaBase'
+        - type: object
+          properties:
+            datos:
+              type: object
+              required: [token]
+              properties:
+                token: { type: string }
+    UnionResponse:
+      allOf:
+        - $ref: '#/components/schemas/RespuestaBase'
+        - type: object
+          properties:
+            datos:
+              type: object
+              required: [invitado, token]
+              properties:
+                invitado: { $ref: '#/components/schemas/Invitado' }
+                token: { type: string }
+    RespuestaEvento:
+      allOf:
+        - $ref: '#/components/schemas/RespuestaBase'
+        - type: object
+          properties:
+            datos: { $ref: '#/components/schemas/Evento' }
+  responses:
+    Error400:
+      description: Petición mal formada o datos obligatorios no válidos
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
+    Error401:
+      description: Falta un token válido o las credenciales no coinciden
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
+    Error403:
+      description: El rol o la sesión no tiene permiso para esta acción
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
+    Error404:
+      description: El evento o invitado no existe
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
+    Error409:
+      description: Conflicto con el estado o los datos existentes del evento
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
+    Error422:
+      description: Regla de negocio incumplida, incluida una transición prohibida
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
+    Error500:
+      description: Error interno al completar la operación
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
