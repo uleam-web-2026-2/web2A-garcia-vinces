@@ -23,3 +23,9 @@ Para completar la evidencia exigida por la guía, ejecutar la colección `docs/h
 ## Fase 1 · interfaz del repositorio
 
 Este punto ya estaba implementado al iniciar el taller: `ServicioEventos` recibe `RepositorioEventos`, definido en `internal/latent/eventos_repositorio.go`, y `eventos_servicio.go` no importa GORM. `main.go` construye el repositorio GORM y se lo entrega al servicio. Se conserva este diseño.
+
+## Fase 3 · consultas sqlc
+
+Se añadió `servidor-pareja/sqlc.yaml` con sqlc v1.31.1, un esquema descriptivo de `eventos` y las consultas `BuscarEvento` y `GuardarEvento`. El adaptador SQLC usa la misma conexión `database/sql` que GORM, incrusta el repositorio GORM y reemplaza solo esos dos métodos. `sql.ErrNoRows` y un `UPDATE` con cero filas se convierten en `ErrEventoNoEncontrado`. `AutoMigrate` permanece activo.
+
+Comprobaciones locales: `sqlc generate`, `go build ./...` y `go test ./...` desde `servidor-pareja`.

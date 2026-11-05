@@ -91,7 +91,14 @@ func main() {
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte(`{"ok":true}` + "\n"))
 	})
-	(&latent.Manejador{DB: db, Tokens: tokens}).Rutas(r, tokens)
+	conexionSQL, err := db.DB()
+	if err != nil {
+		log.Fatal("no se pudo obtener la conexión SQL: ", err)
+	}
+	repoEventosGORM := latent.NuevoRepositorioEventos(db)
+	repoEventos := latent.NuevoRepositorioEventosSQLC(repoEventosGORM, conexionSQL)
+	servicioEventos := latent.NuevoServicioEventos(repoEventos)
+	(&latent.Manejador{DB: db, Tokens: tokens, Eventos: servicioEventos}).Rutas(r, tokens)
 
 	log.Println("Latent escuchando en :" + puerto)
 	server := &http.Server{Addr: ":" + puerto, Handler: r, ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 20 * time.Second, WriteTimeout: 60 * time.Second, IdleTimeout: 60 * time.Second}
