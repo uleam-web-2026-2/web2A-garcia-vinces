@@ -4,12 +4,12 @@ La línea de base se obtuvo antes de los cambios con la prueba HTTP `TestDemoHit
 
 | Petición | Antes | Después |
 |---|---:|---:|
-| 1 sin token | 401 | 401 (`httptest`); falta Bruno en PostgreSQL |
-| 2 login | 200 | 200 (`httptest`); falta Bruno en PostgreSQL |
-| 3 con token | 200 | 200 (`httptest`); falta Bruno en PostgreSQL |
-| 4 rol sin permiso | 403 | 403 (`httptest`); falta Bruno en PostgreSQL |
-| 5 cambio permitido | 200 | 200 (`httptest`); falta Bruno en PostgreSQL |
-| 6 transición prohibida | 422 | 422 (`httptest`); falta Bruno en PostgreSQL |
+| 1 sin token | 401 | 401 (Bruno) |
+| 2 login | 200 | 200 (Bruno) |
+| 3 con token | 200 | 200 (Bruno) |
+| 4 rol sin permiso | 403 | 403 (Bruno) |
+| 5 cambio permitido | 200 | 200 (Bruno) |
+| 6 transición prohibida | 422 | 422 (Bruno) |
 
 La prueba de referencia está en `servidor-pareja/internal/latent/latent_test.go`; puede repetirse con:
 
@@ -18,7 +18,7 @@ cd servidor-pareja
 go test -count=1 -run '^TestDemoHito2RespuestasDeRolesYTransicion$' -v ./internal/latent
 ```
 
-Para completar la evidencia exigida por la guía, ejecutar la colección `docs/hito2_bruno` contra PostgreSQL nativo y completar «Después» tras desplegar la rama.
+La corrida posterior real con la extensión Bruno de VS Code quedó registrada en `docs/taller10/peticiones_despues.txt`.
 
 ## Fase 1 · interfaz del repositorio
 
