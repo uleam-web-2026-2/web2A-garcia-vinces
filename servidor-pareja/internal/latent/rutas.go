@@ -13,6 +13,9 @@ func (m *Manejador) Rutas(r chi.Router, tokens *sesion.Tokens) {
 	if m.Eventos == nil {
 		m.Eventos = NuevoServicioEventos(NuevoRepositorioEventos(m.DB))
 	}
+	if m.Fotos == nil {
+		m.Fotos = NuevoServicioFotos(NuevoRepositorioFotosGORM(m.DB))
+	}
 	// Pública: el invitado entra con el código del evento (el QR), sin cuenta.
 	r.Post("/eventos/unirse", m.unirse)
 

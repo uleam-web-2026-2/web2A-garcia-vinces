@@ -1,6 +1,7 @@
 package latent
 
 import (
+	"context"
 	"errors"
 
 	"gorm.io/gorm"
@@ -58,8 +59,16 @@ func reservarFoto(tx *gorm.DB, invitadoID uint) error {
 
 // guardarFoto reserva el cupo y crea la foto en la MISMA transacción:
 // si algo falla (por ejemplo, UUID repetido), el contador no queda sumado.
-func guardarFoto(db *gorm.DB, f *Foto) error {
-	return db.Transaction(func(tx *gorm.DB) error {
+func guardarFoto(ctx context.Context, db *gorm.DB, f *Foto) error {
+	return db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		var invitado Invitado
+		if err := tx.First(&invitado, f.InvitadoID).Error; err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return ErrNoEncontrado
+			}
+			return err
+		}
+		f.EventoID = invitado.EventoID
 		if err := reservarFoto(tx, f.InvitadoID); err != nil {
 			return err
 		}

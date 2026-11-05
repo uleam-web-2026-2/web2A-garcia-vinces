@@ -18,3 +18,20 @@ type Evento struct {
 	FechaRevelado      sql.NullTime
 	UsuarioID          int64
 }
+
+type Foto struct {
+	ID           int64
+	Uuid         string
+	UrlArchivo   string
+	Sincronizado bool
+	EventoID     int64
+	InvitadoID   int64
+}
+
+type Invitado struct {
+	ID           int64
+	Nombre       string
+	Pin          string
+	FotosTomadas int64
+	EventoID     int64
+}

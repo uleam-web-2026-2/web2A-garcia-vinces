@@ -37,7 +37,7 @@ Para el prototipo, cada foto puede enviarse como data URL de hasta 4 MiB y se gu
 - Colección Bruno y entorno local: [`docs/hito2_bruno/`](docs/hito2_bruno/)
 - SQL de datos de demostración descartables: [`docs/hito2_demo_seed.sql`](docs/hito2_demo_seed.sql)
 - Evidencias: [`docs/hito2_capturas/`](docs/hito2_capturas/)
-- Roles, transición y capas: [`servidor-pareja/docs/decisiones.md`](servidor-pareja/docs/decisiones.md)
+- Roles, transición y capas: [`docs/decisiones.md`](docs/decisiones.md)
 
 Rutas principales: login, unión de invitado, CRUD de eventos, cambio de estado, resumen, galería y registro de fotos. Las rutas privadas usan `Authorization: Bearer <token>` y la API responde errores con una envoltura `{ok:false,error:{codigo,mensaje}}`.
 

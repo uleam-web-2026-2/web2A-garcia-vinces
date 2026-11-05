@@ -98,7 +98,8 @@ func main() {
 	repoEventosGORM := latent.NuevoRepositorioEventos(db)
 	repoEventos := latent.NuevoRepositorioEventosSQLC(repoEventosGORM, conexionSQL)
 	servicioEventos := latent.NuevoServicioEventos(repoEventos)
-	(&latent.Manejador{DB: db, Tokens: tokens, Eventos: servicioEventos}).Rutas(r, tokens)
+	servicioFotos := latent.NuevoServicioFotos(latent.NuevoRepositorioFotosSQLC(conexionSQL))
+	(&latent.Manejador{DB: db, Tokens: tokens, Eventos: servicioEventos, Fotos: servicioFotos}).Rutas(r, tokens)
 
 	log.Println("Latent escuchando en :" + puerto)
 	server := &http.Server{Addr: ":" + puerto, Handler: r, ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 20 * time.Second, WriteTimeout: 60 * time.Second, IdleTimeout: 60 * time.Second}

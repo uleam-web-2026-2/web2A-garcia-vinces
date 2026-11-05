@@ -21,6 +21,7 @@ type Manejador struct {
 	DB      *gorm.DB
 	Tokens  *sesion.Tokens
 	Eventos *ServicioEventos
+	Fotos   *ServicioFotos
 }
 
 var rePin = regexp.MustCompile(`^\d{4}$`)
@@ -56,6 +57,13 @@ func (m *Manejador) crearEvento(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	respuesta.Exito(w, http.StatusCreated, nuevaEventoSalida(ev))
+}
+
+func (m *Manejador) fotos() *ServicioFotos {
+	if m.Fotos == nil {
+		m.Fotos = NuevoServicioFotos(NuevoRepositorioFotosGORM(m.DB))
+	}
+	return m.Fotos
 }
 
 func (m *Manejador) eventos() *ServicioEventos {
@@ -193,39 +201,22 @@ func (m *Manejador) crearFoto(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var foto Foto
-	err := m.DB.Transaction(func(tx *gorm.DB) error {
-		var inv Invitado
-		if err := tx.First(&inv, in.InvitadoID).Error; err != nil {
-			return &errHTTP{http.StatusNotFound, "invitado_no_encontrado", "El invitado no existe"}
-		}
-		var ev Evento
-		if err := tx.First(&ev, inv.EventoID).Error; err != nil {
-			return &errHTTP{http.StatusNotFound, "evento_no_encontrado", "El evento no existe"}
-		}
-		if ev.Estado != EstadoActivo {
-			return &errHTTP{http.StatusForbidden, "evento_no_activo", "El evento no está activo"}
-		}
-		// Suma 1 solo si todavía queda cuota (atómico en el servidor).
-		res := tx.Model(&Invitado{}).
-			Where("id = ? AND fotos_tomadas < ?", inv.ID, ev.DisparoPorInvitado).
-			UpdateColumn("fotos_tomadas", gorm.Expr("fotos_tomadas + 1"))
-		if res.Error != nil {
-			return res.Error
-		}
-		if res.RowsAffected == 0 {
-			return &errHTTP{http.StatusForbidden, "limite_alcanzado", "Se alcanzó el límite de fotos por invitado"}
-		}
-		foto = Foto{UUID: in.UUID, URLArchivo: in.URLArchivo, Sincronizado: true, EventoID: ev.ID, InvitadoID: inv.ID}
-		return tx.Create(&foto).Error
-	})
+	foto := Foto{UUID: in.UUID, URLArchivo: in.URLArchivo, Sincronizado: true, InvitadoID: in.InvitadoID}
+	err := m.fotos().Guardar(r.Context(), &foto)
 	if err != nil {
 		var eh *errHTTP
-		if errors.As(err, &eh) {
+		switch {
+		case errors.As(err, &eh):
 			respuesta.Error(w, eh.status, eh.codigo, eh.msg)
-			return
+		case errors.Is(err, ErrNoEncontrado):
+			respuesta.Error(w, http.StatusNotFound, "invitado_no_encontrado", "El invitado no existe")
+		case errors.Is(err, ErrEventoNoActivo):
+			respuesta.Error(w, http.StatusForbidden, "evento_no_activo", "El evento no está activo")
+		case errors.Is(err, ErrLimiteFotos):
+			respuesta.Error(w, http.StatusForbidden, "limite_alcanzado", "Se alcanzó el límite de fotos por invitado")
+		default:
+			respuesta.Error(w, http.StatusInternalServerError, "error_base", "No se pudo guardar")
 		}
-		respuesta.Error(w, http.StatusInternalServerError, "error_base", "No se pudo guardar")
 		return
 	}
 	respuesta.Exito(w, http.StatusCreated, foto)

@@ -4,12 +4,12 @@ La línea de base se obtuvo antes de los cambios con la prueba HTTP `TestDemoHit
 
 | Petición | Antes | Después |
 |---|---:|---:|
-| 1 sin token | 401 | Pendiente de ejecutar Bruno después de los cambios |
-| 2 login | 200 | Pendiente de ejecutar Bruno después de los cambios |
-| 3 con token | 200 | Pendiente de ejecutar Bruno después de los cambios |
-| 4 rol sin permiso | 403 | Pendiente de ejecutar Bruno después de los cambios |
-| 5 cambio permitido | 200 | Pendiente de ejecutar Bruno después de los cambios |
-| 6 transición prohibida | 422 | Pendiente de ejecutar Bruno después de los cambios |
+| 1 sin token | 401 | 401 (`httptest`); falta Bruno en PostgreSQL |
+| 2 login | 200 | 200 (`httptest`); falta Bruno en PostgreSQL |
+| 3 con token | 200 | 200 (`httptest`); falta Bruno en PostgreSQL |
+| 4 rol sin permiso | 403 | 403 (`httptest`); falta Bruno en PostgreSQL |
+| 5 cambio permitido | 200 | 200 (`httptest`); falta Bruno en PostgreSQL |
+| 6 transición prohibida | 422 | 422 (`httptest`); falta Bruno en PostgreSQL |
 
 La prueba de referencia está en `servidor-pareja/internal/latent/latent_test.go`; puede repetirse con:
 
@@ -39,3 +39,8 @@ Comprobaciones locales: `sqlc generate`, `go build ./...` y `go test ./...` desd
 El contrato documenta las cuatro entidades del paquete `latent`: Evento, Invitado, Foto y Usuario. Las peticiones POST y PUT de eventos usan `EventoNuevo`, sin `id` ni `estado`; la respuesta Evento documenta también `invitados`. `redocly.yaml` conserva la regla de validación recomendada, excepto `no-unused-components`, porque la guía pide incluir Usuario aunque la API no lo devuelve en ninguna ruta. `docs/taller10/redocly.txt` registra una validación limpia con Redocly CLI 2.54.3.
 
 `servidor-pareja/.env.example` ya enumera todas las variables leídas por el proceso (`PUERTO`, `DATABASE_URL`, `CLAVE_FIRMA`, `MODO_DEMO`, `ANFITRION_USUARIO` y `ANFITRION_CLAVE`) con valores de ejemplo o vacíos; no contiene credenciales reales.
+
+
+## Fase 6 · transacciones
+
+`ServicioFotos` depende de `RepositorioFotos`; GORM y SQLC realizan el incremento de cuota y la inserción de foto dentro de una sola transacción. Las pruebas fuerzan un UUID duplicado y comprueban que no se incrementa el contador. `error_forzado.txt` guarda los resultados de ambos adaptadores en SQLite aislado; el PostgreSQL nativo no estaba activo durante la revisión.

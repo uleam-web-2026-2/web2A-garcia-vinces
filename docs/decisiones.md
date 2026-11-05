@@ -41,3 +41,34 @@ El flujo del cambio de estado atraviesa tres responsabilidades:
 ## Semana 7 D4 · JSON mal formado y datos de negocio
 
 JSON que no se puede decodificar responde `400 json_invalido`. Un evento con nombre vacío o con cuotas fuera de rango responde `400 evento_invalido`; una transición desconocida o prohibida responde `422`. La aplicación distingue forma de la petición, datos del evento y regla de ciclo de vida para que el cliente reciba el motivo concreto.
+
+
+## Semana 10 transacciones
+
+### D1 El caso
+
+`POST /fotos` consume una captura de la cuota del invitado y crea una fila en `fotos`. Si se incrementa `invitados.fotos_tomadas` y falla después la inserción de `fotos` (por ejemplo, por un UUID duplicado), el contador queda consumido sin una foto correspondiente. Ambas escrituras forman un único caso de uso.
+
+### D2 Opciones que consideramos
+
+1. Hacer dos llamadas de escritura independientes desde el servicio. Si la segunda falla, la primera queda guardada; no cumple la atomicidad.
+2. Abrir la transacción en el servicio usando GORM o `database/sql`. Haría posible el rollback, pero acoplaría el negocio a una tecnología y obligaría a cambiar el servicio al reemplazar el adaptador.
+3. Exponer una operación `GuardarFoto` en `RepositorioFotos` y dejar que cada adaptador la ejecute dentro de su propia transacción. Mantiene el servicio independiente y permite que GORM y SQLC resuelvan la atomicidad con su conexión.
+
+### D3 La que elegimos y por qué
+
+Elegimos la tercera. Latent ya necesitaba que el contador de cuota y el álbum coincidieran. `ServicioFotos` recibe un repositorio por interfaz y coordina el caso; `RepositorioFotos.GuardarFoto` es la operación atómica. El adaptador GORM usa `Transaction`; el adaptador SQLC usa `BeginTx`, las consultas generadas y `WithTx`.
+
+### D4 La que descartamos y por qué
+
+Descartamos hacer las dos escrituras por separado: una colisión de UUID o un fallo de almacenamiento dejaría una cuota gastada sin una fila en el álbum. También descartamos abrir la transacción desde el servicio porque introduciría GORM o `database/sql` en la capa de negocio y haría que el cambio de adaptador tocara reglas del caso de uso.
+
+### D5 Con sqlc
+
+SQLC genera `EstadoCuotaFoto`, `IncrementarCuotaFoto` y `CrearFoto`. El adaptador inicia una transacción SQL, usa `q.WithTx(tx)` para ejecutar el incremento y el INSERT en la misma conexión, y confirma solo después de ambas operaciones. Un error del INSERT provoca el rollback. `ServicioFotos` no cambia al escoger GORM o SQLC.
+
+### D6 Archivos
+
+Se tocaron `servidor-pareja/internal/latent/fotos_servicio.go`, `fotos_repositorio.go`, `fotos_repositorio_sqlc.go`, `reservas.go`, `manejadores.go`, `rutas.go`, `main.go`, `latent_test.go`, `servidor-pareja/db/schema.sql`, `db/consultas.sql`, los fuentes generados de `internal/latent/filas`, y `docs/taller10/error_forzado.txt`.
+
+`eventos_servicio.go`, las rutas HTTP y los códigos esperados por las seis peticiones no cambiaron. `AutoMigrate` continúa siendo responsable de crear las tablas; el esquema SQL es descriptivo para SQLC.

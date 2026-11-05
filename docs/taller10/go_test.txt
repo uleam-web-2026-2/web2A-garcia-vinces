@@ -1,5 +1,5 @@
 ?   	github.com/Jeanvncs/myfirstgo	[no test files]
-ok  	github.com/Jeanvncs/myfirstgo/internal/latent	(cached)
+ok  	github.com/Jeanvncs/myfirstgo/internal/latent	1.433s
 ?   	github.com/Jeanvncs/myfirstgo/internal/latent/filas	[no test files]
 ?   	github.com/Jeanvncs/myfirstgo/internal/middleware	[no test files]
 ?   	github.com/Jeanvncs/myfirstgo/internal/respuesta	[no test files]

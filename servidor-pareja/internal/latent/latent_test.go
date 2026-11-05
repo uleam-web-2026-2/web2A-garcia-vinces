@@ -1,6 +1,7 @@
 package latent
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -291,4 +292,127 @@ func loginDePrueba(t *testing.T, s *servidorPrueba, usuario, clave string) strin
 		t.Fatal(err)
 	}
 	return cuerpo.Datos.Token
+}
+
+type repositorioFotosFalso struct {
+	llamado bool
+	err     error
+}
+
+func (r *repositorioFotosFalso) GuardarFoto(_ context.Context, _ *Foto) error {
+	r.llamado = true
+	return r.err
+}
+
+func TestServicioFotosUsaRepositorioFalso(t *testing.T) {
+	repo := &repositorioFotosFalso{}
+	servicio := NuevoServicioFotos(repo)
+	if err := servicio.Guardar(context.Background(), &Foto{}); err != nil {
+		t.Fatal(err)
+	}
+	if !repo.llamado {
+		t.Fatal("el servicio no delegó la operación en el repositorio")
+	}
+}
+
+func TestGuardarFotoGORMRevierteCuotaSiFallaInsercion(t *testing.T) {
+	s := nuevoServidor(t)
+	ev := Evento{Nombre: "Boda", CodigoAcceso: "ROLLBACK-GORM", DisparoPorInvitado: 3, MaxInvitado: 10, Estado: EstadoActivo, UsuarioID: 1}
+	crear(t, s.DB, &ev)
+	inv := Invitado{Nombre: "Rollback GORM", Pin: "0427", EventoID: ev.ID}
+	crear(t, s.DB, &inv)
+	existente := Foto{UUID: "duplicada-gorm", URLArchivo: "/archivos/existente.jpg", Sincronizado: true, EventoID: ev.ID, InvitadoID: inv.ID}
+	crear(t, s.DB, &existente)
+
+	err := NuevoServicioFotos(NuevoRepositorioFotosGORM(s.DB)).Guardar(context.Background(), &Foto{
+		UUID: existente.UUID, URLArchivo: "/archivos/repetida.jpg", Sincronizado: true, InvitadoID: inv.ID,
+	})
+	if err == nil {
+		t.Fatal("se esperaba un error por UUID duplicado")
+	}
+	var despues Invitado
+	if err := s.DB.First(&despues, inv.ID).Error; err != nil {
+		t.Fatal(err)
+	}
+	if despues.FotosTomadas != 0 {
+		t.Fatalf("la cuota quedó incrementada tras el fallo: %d", despues.FotosTomadas)
+	}
+	var fotos int64
+	if err := s.DB.Model(&Foto{}).Where("invitado_id = ?", inv.ID).Count(&fotos).Error; err != nil {
+		t.Fatal(err)
+	}
+	if fotos != 1 {
+		t.Fatalf("quedó un número inesperado de fotos: %d", fotos)
+	}
+}
+
+func TestGuardarFotoSQLCRevierteCuotaSiFallaInsercion(t *testing.T) {
+	s := nuevoServidor(t)
+	conexion, err := s.DB.DB()
+	if err != nil {
+		t.Fatal(err)
+	}
+	ev := Evento{Nombre: "Boda", CodigoAcceso: "ROLLBACK-SQLC", DisparoPorInvitado: 3, MaxInvitado: 10, Estado: EstadoActivo, UsuarioID: 1}
+	crear(t, s.DB, &ev)
+	inv := Invitado{Nombre: "Rollback SQLC", Pin: "0427", EventoID: ev.ID}
+	crear(t, s.DB, &inv)
+	existente := Foto{UUID: "duplicada-sqlc", URLArchivo: "/archivos/existente.jpg", Sincronizado: true, EventoID: ev.ID, InvitadoID: inv.ID}
+	crear(t, s.DB, &existente)
+
+	err = NuevoServicioFotos(NuevoRepositorioFotosSQLC(conexion)).Guardar(context.Background(), &Foto{
+		UUID: existente.UUID, URLArchivo: "/archivos/repetida.jpg", Sincronizado: true, InvitadoID: inv.ID,
+	})
+	if err == nil {
+		t.Fatal("se esperaba un error por UUID duplicado")
+	}
+	var despues Invitado
+	if err := s.DB.First(&despues, inv.ID).Error; err != nil {
+		t.Fatal(err)
+	}
+	if despues.FotosTomadas != 0 {
+		t.Fatalf("la cuota quedó incrementada tras el fallo SQLC: %d", despues.FotosTomadas)
+	}
+	var fotos int64
+	if err := s.DB.Model(&Foto{}).Where("invitado_id = ?", inv.ID).Count(&fotos).Error; err != nil {
+		t.Fatal(err)
+	}
+	if fotos != 1 {
+		t.Fatalf("quedó un número inesperado de fotos: %d", fotos)
+	}
+}
+
+func TestRepositorioEventosSQLCConsultaYGuarda(t *testing.T) {
+	s := nuevoServidor(t)
+	ev := Evento{Nombre: "Evento SQLC", CodigoAcceso: "SQLC-TEST", DisparoPorInvitado: 3, MaxInvitado: 20, Estado: EstadoCreado, UsuarioID: 1}
+	crear(t, s.DB, &ev)
+	conexion, err := s.DB.DB()
+	if err != nil {
+		t.Fatal(err)
+	}
+	repo := NuevoRepositorioEventosSQLC(NuevoRepositorioEventos(s.DB), conexion)
+
+	encontrado, err := repo.Buscar(context.Background(), ev.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if encontrado.ID != ev.ID || encontrado.Nombre != ev.Nombre || encontrado.FechaRevelado != nil {
+		t.Fatalf("la fila convertida no coincide: %+v", encontrado)
+	}
+	encontrado.Nombre = "Evento SQLC actualizado"
+	if err := repo.Guardar(context.Background(), &encontrado); err != nil {
+		t.Fatal(err)
+	}
+	verificado, err := repo.Buscar(context.Background(), ev.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if verificado.Nombre != encontrado.Nombre {
+		t.Fatalf("no se guardaron los cambios: %+v", verificado)
+	}
+	if _, err := repo.Buscar(context.Background(), 999999); err != ErrEventoNoEncontrado {
+		t.Fatalf("Buscar debía traducir fila ausente; recibió %v", err)
+	}
+	if err := repo.Guardar(context.Background(), &Evento{ID: 999999, Nombre: "ausente"}); err != ErrEventoNoEncontrado {
+		t.Fatalf("Guardar debía traducir cero filas; recibió %v", err)
+	}
 }

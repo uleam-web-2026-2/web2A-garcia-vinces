@@ -1,0 +1,11 @@
+=== RUN   TestGuardarFotoGORMRevierteCuotaSiFallaInsercion
+
+2026/11/05 13:42:13 [31;1mD:/TI/SEXTO 2026(2)/APLICACIONES WEB II/web2A-garcia-vinces/servidor-pareja/internal/latent/reservas.go:75 [35;1mconstraint failed: UNIQUE constraint failed: fotos.uuid (2067)
+[0m[33m[0.000ms] [34;1m[rows:0][0m INSERT INTO `fotos` (`uuid`,`url_archivo`,`sincronizado`,`evento_id`,`invitado_id`) VALUES ("duplicada-gorm","/archivos/repetida.jpg",true,1,1) RETURNING `id`
+--- PASS: TestGuardarFotoGORMRevierteCuotaSiFallaInsercion (0.15s)
+=== RUN   TestGuardarFotoSQLCRevierteCuotaSiFallaInsercion
+--- PASS: TestGuardarFotoSQLCRevierteCuotaSiFallaInsercion (0.01s)
+PASS
+ok  	github.com/Jeanvncs/myfirstgo/internal/latent	0.697s
+
+Alcance: ambas pruebas se ejecutan contra SQLite aislado en memoria. Validan el rollback de cada adaptador y no usan la base de datos de desarrollo. PostgreSQL nativo no estaba activo en esta máquina durante la ejecución.
