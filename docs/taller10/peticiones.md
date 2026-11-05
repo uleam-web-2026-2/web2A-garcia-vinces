@@ -19,3 +19,7 @@ go test -count=1 -run '^TestDemoHito2RespuestasDeRolesYTransicion$' -v ./interna
 ```
 
 Para completar la evidencia exigida por la guía, ejecutar la colección `docs/hito2_bruno` contra PostgreSQL nativo y completar «Después» tras desplegar la rama.
+
+## Fase 1 · interfaz del repositorio
+
+Este punto ya estaba implementado al iniciar el taller: `ServicioEventos` recibe `RepositorioEventos`, definido en `internal/latent/eventos_repositorio.go`, y `eventos_servicio.go` no importa GORM. `main.go` construye el repositorio GORM y se lo entrega al servicio. Se conserva este diseño.
