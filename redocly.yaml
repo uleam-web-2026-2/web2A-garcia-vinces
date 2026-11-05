@@ -3,3 +3,5 @@ extends:
 rules:
   info-license: off
   no-server-example.com: off
+  # Se documentan las entidades persistidas, aunque no todas se exponen en rutas HTTP.
+  no-unused-components: off

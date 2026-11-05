@@ -33,3 +33,9 @@ Comprobaciones locales: `sqlc generate`, `go build ./...` y `go test ./...` desd
 ## Fase 4 · pruebas automatizadas
 
 `go test ./...` pasó; su salida quedó guardada en `docs/taller10/go_test.txt`. Las pruebas HTTP del repositorio usan SQLite en memoria y el repositorio GORM, por lo que no sustituyen la validación del adaptador SQLC ni la repetición de las seis peticiones en Bruno. Esas dos comprobaciones requieren que PostgreSQL nativo y la API estén activos.
+
+## Fase 5 · contrato y configuración
+
+El contrato documenta las cuatro entidades del paquete `latent`: Evento, Invitado, Foto y Usuario. Las peticiones POST y PUT de eventos usan `EventoNuevo`, sin `id` ni `estado`; la respuesta Evento documenta también `invitados`. `redocly.yaml` conserva la regla de validación recomendada, excepto `no-unused-components`, porque la guía pide incluir Usuario aunque la API no lo devuelve en ninguna ruta. `docs/taller10/redocly.txt` registra una validación limpia con Redocly CLI 2.54.3.
+
+`servidor-pareja/.env.example` ya enumera todas las variables leídas por el proceso (`PUERTO`, `DATABASE_URL`, `CLAVE_FIRMA`, `MODO_DEMO`, `ANFITRION_USUARIO` y `ANFITRION_CLAVE`) con valores de ejemplo o vacíos; no contiene credenciales reales.

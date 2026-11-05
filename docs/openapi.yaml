@@ -331,7 +331,7 @@ components:
       enum: [creado, activo, finalizado, cancelado]
     Evento:
       type: object
-      required: [id, nombre, codigo_acceso, disparo_por_invitado, max_invitado, estado, usuario_id]
+      required: [id, nombre, codigo_acceso, disparo_por_invitado, max_invitado, estado, usuario_id, invitados]
       properties:
         id: { type: integer, readOnly: true }
         nombre: { type: string, minLength: 1, maxLength: 100 }
@@ -341,6 +341,18 @@ components:
         estado: { $ref: '#/components/schemas/EventoEstado' }
         fecha_revelado: { type: [string, 'null'], format: date-time }
         usuario_id: { type: integer, readOnly: true }
+        invitados:
+          type: [array, 'null']
+          items: { $ref: '#/components/schemas/Invitado' }
+    Usuario:
+      type: object
+      required: [id, nombre, rol]
+      properties:
+        id: { type: integer, readOnly: true }
+        nombre: { type: string }
+        rol:
+          type: string
+          enum: [admin, anfitrion, invitado]
     EventoNuevo:
       type: object
       additionalProperties: false
