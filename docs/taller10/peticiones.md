@@ -1,6 +1,6 @@
 # Semana 10 · línea de base de peticiones
 
-La línea de base se obtuvo antes de los cambios con la prueba HTTP `TestDemoHito2RespuestasDeRolesYTransicion` (`httptest` + SQLite en memoria). No se pudo ejecutar la colección Bruno contra PostgreSQL en esta máquina: no hay servidor disponible en `localhost:5432` ni API activa en `localhost:8081`. Estos resultados son la comprobación automatizada disponible, no una corrida Bruno.
+En la fase 0, antes de los cambios, PostgreSQL y la API todavía no estaban activos; por eso la columna «Antes» se verificó con la prueba HTTP `TestDemoHito2RespuestasDeRolesYTransicion` (`httptest` + SQLite en memoria), no con una corrida Bruno. La columna «Después» sí contiene los resultados de Bruno contra la API conectada a PostgreSQL.
 
 | Petición | Antes | Después |
 |---|---:|---:|
@@ -43,4 +43,4 @@ El contrato documenta las cuatro entidades del paquete `latent`: Evento, Invitad
 
 ## Fase 6 · transacciones
 
-`ServicioFotos` depende de `RepositorioFotos`; GORM y SQLC realizan el incremento de cuota y la inserción de foto dentro de una sola transacción. Las pruebas fuerzan un UUID duplicado y comprueban que no se incrementa el contador. `error_forzado.txt` guarda los resultados de ambos adaptadores en SQLite aislado; el PostgreSQL nativo no estaba activo durante la revisión.
+`ServicioFotos` depende de `RepositorioFotos`; GORM y SQLC realizan el incremento de cuota y la inserción de foto dentro de una sola transacción. Las pruebas fuerzan un UUID duplicado y comprueban que no se incrementa el contador. `error_forzado.txt` guarda resultados de ambos adaptadores en SQLite aislado y una prueba optativa posterior contra PostgreSQL nativo, con registros temporales eliminados al terminar.

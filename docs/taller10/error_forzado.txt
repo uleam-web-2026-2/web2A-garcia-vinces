@@ -8,4 +8,16 @@
 PASS
 ok  	github.com/Jeanvncs/myfirstgo/internal/latent	0.697s
 
-Alcance: ambas pruebas se ejecutan contra SQLite aislado en memoria. Validan el rollback de cada adaptador y no usan la base de datos de desarrollo. PostgreSQL nativo no estaba activo en esta máquina durante la ejecución.
+Alcance: ambas pruebas se ejecutan contra SQLite aislado en memoria. Validan el rollback de cada adaptador y no usan la base de datos de desarrollo. La primera ejecución se hizo en SQLite porque PostgreSQL aún no estaba activo; después se añadió la prueba optativa de integración PostgreSQL que sigue.
+
+
+## Verificación posterior con PostgreSQL nativo
+
+`TALLER10_TEST_DATABASE_URL` apuntó a la base local del proyecto sin imprimir la URL. El test creó un evento temporal, un invitado y una foto con UUID único; forzó el UUID duplicado por separado en GORM y SQLC, comprobó contador 0 y una sola foto, y verificó la limpieza de los registros temporales.
+
+```text
+=== RUN   TestRollbackTransaccionesPostgres
+--- PASS: TestRollbackTransaccionesPostgres
+PASS
+ok   github.com/Jeanvncs/myfirstgo/internal/latent
+```

@@ -1,5 +1,7 @@
+Comando: go test -count=1 ./...
+TALLER10_TEST_DATABASE_URL se configuró para ejecutar también el test PostgreSQL nativo; la URL no se imprime.
 ?   	github.com/Jeanvncs/myfirstgo	[no test files]
-ok  	github.com/Jeanvncs/myfirstgo/internal/latent	1.433s
+ok  	github.com/Jeanvncs/myfirstgo/internal/latent	0.611s
 ?   	github.com/Jeanvncs/myfirstgo/internal/latent/filas	[no test files]
 ?   	github.com/Jeanvncs/myfirstgo/internal/middleware	[no test files]
 ?   	github.com/Jeanvncs/myfirstgo/internal/respuesta	[no test files]

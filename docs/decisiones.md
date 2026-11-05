@@ -69,6 +69,6 @@ SQLC genera `EstadoCuotaFoto`, `IncrementarCuotaFoto` y `CrearFoto`. El adaptado
 
 ### D6 Archivos
 
-Se tocaron `servidor-pareja/internal/latent/fotos_servicio.go`, `fotos_repositorio.go`, `fotos_repositorio_sqlc.go`, `reservas.go`, `manejadores.go`, `rutas.go`, `main.go`, `latent_test.go`, `servidor-pareja/db/schema.sql`, `db/consultas.sql`, los fuentes generados de `internal/latent/filas`, y `docs/taller10/error_forzado.txt`.
+Se tocaron `servidor-pareja/internal/latent/fotos_servicio.go`, `fotos_repositorio.go`, `fotos_repositorio_sqlc.go`, `reservas.go`, `manejadores.go`, `rutas.go`, `main.go`, `latent_test.go`, `postgres_transacciones_test.go`, `servidor-pareja/db/schema.sql`, `db/consultas.sql`, los fuentes generados de `internal/latent/filas`, y `docs/taller10/error_forzado.txt`.
 
 `eventos_servicio.go`, las rutas HTTP y los códigos esperados por las seis peticiones no cambiaron. `AutoMigrate` continúa siendo responsable de crear las tablas; el esquema SQL es descriptivo para SQLC.
