@@ -24,15 +24,15 @@ type Usuario struct {
 }
 
 type Evento struct {
-	ID                 uint       `gorm:"primaryKey" json:"id"`
-	Nombre             string     `gorm:"not null" json:"nombre"`
-	CodigoAcceso       string     `gorm:"uniqueIndex;not null" json:"codigo_acceso"`
-	DisparoPorInvitado int        `gorm:"not null;default:3" json:"disparo_por_invitado"`
-	MaxInvitado        int        `gorm:"not null" json:"max_invitado"`
-	Estado             string     `gorm:"not null;default:creado" json:"estado"`
-	FechaRevelado      *time.Time `json:"fecha_revelado"`
-	UsuarioID          uint       `json:"usuario_id"`
-	Invitados          []Invitado `json:"invitados"`
+	ID                 uint   `gorm:"primaryKey"`
+	Nombre             string `gorm:"not null"`
+	CodigoAcceso       string `gorm:"uniqueIndex;not null"`
+	DisparoPorInvitado int    `gorm:"not null;default:3"`
+	MaxInvitado        int    `gorm:"not null"`
+	Estado             string `gorm:"not null;default:creado"`
+	FechaRevelado      *time.Time
+	UsuarioID          uint
+	Invitados          []Invitado
 }
 
 type Invitado struct {

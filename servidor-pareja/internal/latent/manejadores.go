@@ -45,23 +45,17 @@ func leerID(w http.ResponseWriter, r *http.Request) (uint, bool) {
 // POST /eventos
 func (m *Manejador) crearEvento(w http.ResponseWriter, r *http.Request) {
 	ses, _ := sesion.De(r) // el guardia ya comprobó el token y el rol
-	var in struct {
-		Nombre             string `json:"nombre"`
-		DisparoPorInvitado int    `json:"disparo_por_invitado"`
-		MaxInvitado        int    `json:"max_invitado"`
-	}
+	var in EventoEntrada
 	if err := json.NewDecoder(r.Body).Decode(&in); err != nil {
 		respuesta.Error(w, http.StatusBadRequest, "json_invalido", "El cuerpo no es un JSON válido")
 		return
 	}
-	ev, err := m.eventos().Crear(r.Context(), ses.UsuarioID, EventoNuevo{
-		Nombre: in.Nombre, DisparoPorInvitado: in.DisparoPorInvitado, MaxInvitado: in.MaxInvitado,
-	})
+	ev, err := m.eventos().Crear(r.Context(), ses.UsuarioID, in.comoNuevo())
 	if err != nil {
 		m.responderErrorEvento(w, err)
 		return
 	}
-	respuesta.Exito(w, http.StatusCreated, ev)
+	respuesta.Exito(w, http.StatusCreated, nuevaEventoSalida(ev))
 }
 
 func (m *Manejador) eventos() *ServicioEventos {
@@ -301,7 +295,7 @@ func (m *Manejador) cambiarEstado(w http.ResponseWriter, r *http.Request) {
 		m.responderErrorEvento(w, err)
 		return
 	}
-	respuesta.Exito(w, http.StatusOK, ev)
+	respuesta.Exito(w, http.StatusOK, nuevaEventoSalida(ev))
 }
 
 // GET /eventos/{id}
@@ -316,7 +310,7 @@ func (m *Manejador) verEvento(w http.ResponseWriter, r *http.Request) {
 		m.responderErrorEvento(w, err)
 		return
 	}
-	respuesta.Exito(w, http.StatusOK, ev)
+	respuesta.Exito(w, http.StatusOK, nuevaEventoSalida(ev))
 }
 
 // actualizarEvento edita la configuración del evento antes de iniciarlo.
@@ -326,23 +320,17 @@ func (m *Manejador) actualizarEvento(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	var in struct {
-		Nombre             string `json:"nombre"`
-		DisparoPorInvitado int    `json:"disparo_por_invitado"`
-		MaxInvitado        int    `json:"max_invitado"`
-	}
+	var in EventoEntrada
 	if err := json.NewDecoder(r.Body).Decode(&in); err != nil {
 		respuesta.Error(w, http.StatusBadRequest, "json_invalido", "El cuerpo no es un JSON válido")
 		return
 	}
-	ev, err := m.eventos().Actualizar(r.Context(), ses.UsuarioID, id, EventoEdicion{
-		Nombre: in.Nombre, DisparoPorInvitado: in.DisparoPorInvitado, MaxInvitado: in.MaxInvitado,
-	})
+	ev, err := m.eventos().Actualizar(r.Context(), ses.UsuarioID, id, in.comoEdicion())
 	if err != nil {
 		m.responderErrorEvento(w, err)
 		return
 	}
-	respuesta.Exito(w, http.StatusOK, ev)
+	respuesta.Exito(w, http.StatusOK, nuevaEventoSalida(ev))
 }
 
 func (m *Manejador) eliminarEvento(w http.ResponseWriter, r *http.Request) {
@@ -366,7 +354,7 @@ func (m *Manejador) listarEventos(w http.ResponseWriter, r *http.Request) {
 		m.responderErrorEvento(w, err)
 		return
 	}
-	respuesta.Exito(w, http.StatusOK, eventos)
+	respuesta.Exito(w, http.StatusOK, listaEventosSalida(eventos))
 }
 
 // GET /eventos/{id}/resumen — datos mínimos que necesita cualquier asistente.

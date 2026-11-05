@@ -174,17 +174,17 @@ func TestSinTokenLasRutasProtegidasResponden401(t *testing.T) {
 func TestEventoCRUD(t *testing.T) {
 	s := nuevoServidor(t)
 	creado := llamarComo(s, sesion.RolAnfitrion, 1, http.MethodPost, "/eventos",
-		`{"nombre":"Cumpleaños","disparo_por_invitado":3,"max_invitado":30}`)
+		`{"id":77,"estado":"finalizado","nombre":"Cumpleaños","disparo_por_invitado":3,"max_invitado":30}`)
 	esperar(t, creado, http.StatusCreated)
 	var envoltura struct {
-		Datos Evento `json:"datos"`
+		Datos EventoSalida `json:"datos"`
 	}
 	if err := json.Unmarshal(creado.Body.Bytes(), &envoltura); err != nil {
 		t.Fatal(err)
 	}
 	id := envoltura.Datos.ID
-	if id == 0 || envoltura.Datos.Estado != EstadoCreado || envoltura.Datos.CodigoAcceso == "" {
-		t.Fatalf("evento creado incompleto: %+v", envoltura.Datos)
+	if id == 0 || id == 77 || envoltura.Datos.Estado != EstadoCreado || envoltura.Datos.CodigoAcceso == "" {
+		t.Fatalf("el cliente alteró el id o el estado inicial: %+v", envoltura.Datos)
 	}
 
 	ruta := fmt.Sprintf("/eventos/%d", id)
