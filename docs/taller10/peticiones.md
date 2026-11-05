@@ -29,3 +29,7 @@ Este punto ya estaba implementado al iniciar el taller: `ServicioEventos` recibe
 Se añadió `servidor-pareja/sqlc.yaml` con sqlc v1.31.1, un esquema descriptivo de `eventos` y las consultas `BuscarEvento` y `GuardarEvento`. El adaptador SQLC usa la misma conexión `database/sql` que GORM, incrusta el repositorio GORM y reemplaza solo esos dos métodos. `sql.ErrNoRows` y un `UPDATE` con cero filas se convierten en `ErrEventoNoEncontrado`. `AutoMigrate` permanece activo.
 
 Comprobaciones locales: `sqlc generate`, `go build ./...` y `go test ./...` desde `servidor-pareja`.
+
+## Fase 4 · pruebas automatizadas
+
+`go test ./...` pasó; su salida quedó guardada en `docs/taller10/go_test.txt`. Las pruebas HTTP del repositorio usan SQLite en memoria y el repositorio GORM, por lo que no sustituyen la validación del adaptador SQLC ni la repetición de las seis peticiones en Bruno. Esas dos comprobaciones requieren que PostgreSQL nativo y la API estén activos.

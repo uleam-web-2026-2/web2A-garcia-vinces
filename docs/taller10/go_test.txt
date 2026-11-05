@@ -1,0 +1,6 @@
+?   	github.com/Jeanvncs/myfirstgo	[no test files]
+ok  	github.com/Jeanvncs/myfirstgo/internal/latent	(cached)
+?   	github.com/Jeanvncs/myfirstgo/internal/latent/filas	[no test files]
+?   	github.com/Jeanvncs/myfirstgo/internal/middleware	[no test files]
+?   	github.com/Jeanvncs/myfirstgo/internal/respuesta	[no test files]
+?   	github.com/Jeanvncs/myfirstgo/internal/sesion	[no test files]
