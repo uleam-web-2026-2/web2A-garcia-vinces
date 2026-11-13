@@ -21,7 +21,7 @@ $env:MODO_DEMO = "true"
 go run .
 ```
 
-La guía del Hito 2 evalúa la API mediante peticiones y pruebas; no pide una interfaz web ni Docker. Comprueba `http://localhost:8081/healthz` y ejecuta la colección de [`docs/hito2_bruno/`](docs/hito2_bruno/) en Bruno. La cuenta anfitrión de demostración es `luis / luis-2026`; el login adicional de ejemplo es `ana / ana-2026`. **No habilites `MODO_DEMO` en una instancia pública.**
+El Hito 2 evalúa la API mediante peticiones y pruebas; no pide una interfaz web ni Docker. El taller de Semana 11 sí consiste en contenerizar la API; revisa la sección «Taller Semana 11» más abajo. Comprueba `http://localhost:8081/healthz` y ejecuta la colección de [`docs/hito2_bruno/`](docs/hito2_bruno/) en Bruno. La cuenta anfitrión de demostración es `luis / luis-2026`; el login adicional de ejemplo es `ana / ana-2026`. **No habilites `MODO_DEMO` en una instancia pública.**
 
 La aplicación Go se conecta directamente a PostgreSQL usando `DATABASE_URL`; pgAdmin administra la base y no es necesario que la API use Docker. Asegúrate de que la base indicada en esa URL exista y que la contraseña coincida con tu instalación local. El código ejecuta migraciones al arrancar, pero no borra tablas ni filas. `go run . -reset` sí elimina las tablas; no lo uses con una base que quieras conservar.
 
@@ -40,6 +40,34 @@ Para el prototipo, cada foto puede enviarse como data URL de hasta 4 MiB y se gu
 - Roles, transición y capas: [`docs/decisiones.md`](docs/decisiones.md)
 
 Rutas principales: login, unión de invitado, CRUD de eventos, cambio de estado, resumen, galería y registro de fotos. Las rutas privadas usan `Authorization: Bearer <token>` y la API responde errores con una envoltura `{ok:false,error:{codigo,mensaje}}`.
+
+## Taller Semana 11: contenerizar la API
+
+El Dockerfile está en `servidor-pareja/` y usa dos etapas: la primera compila un binario estático con Go; la imagen final Distroless contiene solo ese binario y corre como usuario no root. Las claves y la URL de PostgreSQL se entregan al arrancar el contenedor, nunca se copian a la imagen.
+
+Esta configuración conserva PostgreSQL instalado localmente en Windows. Desde el contenedor, `host.docker.internal` apunta a la máquina Windows; por eso la URL usa ese host en lugar de `localhost`. PostgreSQL debe aceptar conexiones desde Docker Desktop y el firewall debe permitirlas.
+
+Desde PowerShell, entra a `servidor-pareja` y prepara el archivo local de variables:
+
+```powershell
+Copy-Item .env.docker.example docker.env
+notepad docker.env
+```
+
+En `docker.env`, reemplaza el usuario y la clave de PostgreSQL y configura un secreto aleatorio de al menos 32 caracteres. El archivo `docker.env` está excluido de Git. Para la práctica, apunta a la base descartable `LatentDemo` y usa `MODO_DEMO=true`.
+
+Construye y arranca la API:
+
+```powershell
+docker build -t latent-api:local .
+docker run --rm --name latent-api --env-file docker.env -p 8081:8081 latent-api:local
+```
+
+Con el contenedor activo, comprueba `http://localhost:8081/healthz` o ejecuta la colección Bruno. Detén el contenedor con `Ctrl+C`; `--rm` elimina el contenedor detenido, pero conserva la imagen. No uses `-reset` ni el seed contra una base con datos que quieras conservar.
+
+Si el contenedor no logra conectar con PostgreSQL, revisa que la URL use `host.docker.internal`, que PostgreSQL esté escuchando en una interfaz accesible desde Docker y que las reglas de acceso y el firewall permitan esa conexión. No publiques el puerto de PostgreSQL en Internet.
+
+Para reconstruir después de cambiar el código, ejecuta de nuevo `docker build -t latent-api:local .` desde `servidor-pareja`. En producción, usa una base de datos accesible desde el servicio, credenciales propias, `MODO_DEMO=false` y secretos gestionados fuera del repositorio.
 
 ## Pruebas y contrato
 
