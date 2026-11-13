@@ -3,7 +3,9 @@
 bin/
 .env
 .env.*
+docker.env
 .DS_Store
 *.log
 
 !.env.example
+!.env.docker.example

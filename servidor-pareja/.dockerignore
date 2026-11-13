@@ -1,0 +1,6 @@
+.git
+.env
+.env.*
+docker.env
+docker.env.example
+*.log
