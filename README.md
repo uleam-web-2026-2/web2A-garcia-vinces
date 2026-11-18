@@ -71,7 +71,7 @@ Si el contenedor no logra conectar con PostgreSQL, revisa que la URL use `host.d
 
 Para reconstruir después de cambiar el código, ejecuta de nuevo `docker build -t latent-api:local .` desde `servidor-pareja`. En producción, usa una base de datos accesible desde el servicio, credenciales propias, `MODO_DEMO=false` y secretos gestionados fuera del repositorio.
 
-Para el reto adicional con Compose, copia `.env.compose.example` como `.env` en la raíz del repositorio y sigue [`docs/taller11/README.md`](docs/taller11/README.md). Compose levanta una PostgreSQL separada con volumen persistente y conecta la API por la red interna del proyecto.
+Para el reto adicional con Compose, copia `.env.compose.example` como `.env.compose` en la raíz del repositorio y sigue [`docs/taller11/README.md`](docs/taller11/README.md). Compose levanta una PostgreSQL separada con volumen persistente y conecta la API por la red interna del proyecto.
 
 ## Pruebas y contrato
 

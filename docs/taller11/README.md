@@ -16,10 +16,10 @@ El Dockerfile multietapa original está en `servidor-pareja/Dockerfile`. El `.en
 Desde la raíz del repositorio, en PowerShell:
 
 ```powershell
-Copy-Item .env.compose.example .env
-docker compose config
-docker compose up --build -d
-docker compose ps
+Copy-Item .env.compose.example .env.compose
+docker compose --env-file .env.compose config
+docker compose --env-file .env.compose up --build -d
+docker compose --env-file .env.compose ps
 Invoke-RestMethod http://localhost:8081/healthz
 ```
 
@@ -28,7 +28,7 @@ La respuesta esperada del healthcheck HTTP es `ok: True`. Compose espera que Pos
 Para ver los registros y guardar evidencia:
 
 ```powershell
-docker compose logs --no-color api
+docker compose --env-file .env.compose logs --no-color api
 .\docs\taller11\capturar-salidas.ps1
 ```
 
@@ -37,10 +37,10 @@ El script crea `salidas-imagen.txt` y `salidas-contenedor.txt` con información 
 Para detener los servicios sin borrar los datos:
 
 ```powershell
-docker compose down
+docker compose --env-file .env.compose down
 ```
 
-Solo para reiniciar desde cero la base descartable de demostración se puede ejecutar `docker compose down -v`; esto borra el volumen `postgres_data` y sus datos.
+Solo para reiniciar desde cero la base descartable de demostración se puede ejecutar `docker compose --env-file .env.compose down -v`; esto borra el volumen `postgres_data` y sus datos.
 
 ## Evidencias que se deben conservar
 

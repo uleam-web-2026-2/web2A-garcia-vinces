@@ -10,10 +10,10 @@ try {
     if ($LASTEXITCODE -ne 0) { throw 'No se encontró latent-api:compose. Ejecuta docker compose up --build -d primero.' }
     $imageOutput | Set-Content -LiteralPath $outImage -Encoding utf8
 
-    $containerOutput = docker compose ps
+    $containerOutput = docker compose --env-file .env.compose ps
     if ($LASTEXITCODE -ne 0) { throw 'No se pudo consultar docker compose ps.' }
     $healthOutput = Invoke-RestMethod -Uri 'http://localhost:8081/healthz'
-    $logsOutput = docker compose logs --no-color api
+    $logsOutput = docker compose --env-file .env.compose logs --no-color api
     if ($LASTEXITCODE -ne 0) { throw 'No se pudieron leer los registros de la API.' }
 
     @(
