@@ -72,3 +72,19 @@ SQLC genera `EstadoCuotaFoto`, `IncrementarCuotaFoto` y `CrearFoto`. El adaptado
 Se tocaron `servidor-pareja/internal/latent/fotos_servicio.go`, `fotos_repositorio.go`, `fotos_repositorio_sqlc.go`, `reservas.go`, `manejadores.go`, `rutas.go`, `main.go`, `latent_test.go`, `postgres_transacciones_test.go`, `servidor-pareja/db/schema.sql`, `db/consultas.sql`, los fuentes generados de `internal/latent/filas`, y `docs/taller10/error_forzado.txt`.
 
 `eventos_servicio.go`, las rutas HTTP y los códigos esperados por las seis peticiones no cambiaron. `AutoMigrate` continúa siendo responsable de crear las tablas; el esquema SQL es descriptivo para SQLC.
+
+## Semana 11 · decisiones de contenedores (D1–D9)
+
+| ID | Decisión | Motivo y efecto |
+|---|---|---|
+| D1 | Construir la API con una imagen multietapa. | El compilador y las dependencias de construcción no pasan a la imagen final. |
+| D2 | Compilar con `CGO_ENABLED=0`. | El binario Go queda estático y puede correr en una imagen mínima. |
+| D3 | Usar Distroless Debian 13 como runtime. | La imagen final contiene el binario y certificados necesarios, sin shell ni gestor de paquetes. |
+| D4 | Ejecutar como usuario no root. | Reduce los privilegios del proceso dentro del contenedor. |
+| D5 | Entregar configuración por variables de entorno. | Las claves y la URL de base no se incluyen en la imagen ni en el código. |
+| D6 | Publicar el puerto del servicio con `8081:8081`. | El puerto izquierdo es el de la máquina; el derecho es el que escucha la API dentro del contenedor. |
+| D7 | En el reto Compose, conectar la API a PostgreSQL por el nombre de servicio `db`. | Los contenedores comparten una red y no deben usar `localhost` para comunicarse entre sí. |
+| D8 | Persistir los datos de PostgreSQL en un volumen nombrado. | Recrear el contenedor de la base no borra sus datos; `down` conserva el volumen. |
+| D9 | Esperar a que PostgreSQL pase su healthcheck antes de iniciar la API. | Evita que la API intente conectarse mientras la base todavía está arrancando. |
+
+El reto Compose es local y de demostración. Usa credenciales de ejemplo reemplazables; no debe publicarse con esos valores.

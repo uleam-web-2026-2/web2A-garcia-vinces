@@ -43,6 +43,8 @@ Rutas principales: login, unión de invitado, CRUD de eventos, cambio de estado,
 
 ## Taller Semana 11: contenerizar la API
 
+La entrega organizada del taller está en [`docs/taller11/`](docs/taller11/): incluye el reto con Docker Compose, la tabla de peticiones, las decisiones D1–D9 y cómo guardar las salidas reales de la imagen y del contenedor.
+
 El Dockerfile está en `servidor-pareja/` y usa dos etapas: la primera compila un binario estático con Go; la imagen final Distroless contiene solo ese binario y corre como usuario no root. Las claves y la URL de PostgreSQL se entregan al arrancar el contenedor, nunca se copian a la imagen.
 
 Esta configuración conserva PostgreSQL instalado localmente en Windows. Desde el contenedor, `host.docker.internal` apunta a la máquina Windows; por eso la URL usa ese host en lugar de `localhost`. PostgreSQL debe aceptar conexiones desde Docker Desktop y el firewall debe permitirlas.
@@ -68,6 +70,8 @@ Con el contenedor activo, comprueba `http://localhost:8081/healthz` o ejecuta la
 Si el contenedor no logra conectar con PostgreSQL, revisa que la URL use `host.docker.internal`, que PostgreSQL esté escuchando en una interfaz accesible desde Docker y que las reglas de acceso y el firewall permitan esa conexión. No publiques el puerto de PostgreSQL en Internet.
 
 Para reconstruir después de cambiar el código, ejecuta de nuevo `docker build -t latent-api:local .` desde `servidor-pareja`. En producción, usa una base de datos accesible desde el servicio, credenciales propias, `MODO_DEMO=false` y secretos gestionados fuera del repositorio.
+
+Para el reto adicional con Compose, copia `.env.compose.example` como `.env` en la raíz del repositorio y sigue [`docs/taller11/README.md`](docs/taller11/README.md). Compose levanta una PostgreSQL separada con volumen persistente y conecta la API por la red interna del proyecto.
 
 ## Pruebas y contrato
 

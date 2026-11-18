@@ -1,0 +1,35 @@
+services:
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-LatentDemo}
+      POSTGRES_USER: ${POSTGRES_USER:-latent}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Configura POSTGRES_PASSWORD en .env}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  api:
+    image: latent-api:compose
+    build:
+      context: ./servidor-pareja
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "${PUERTO:-8081}:8081"
+    environment:
+      PUERTO: "8081"
+      DATABASE_URL: postgres://${POSTGRES_USER:-latent}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-LatentDemo}?sslmode=disable
+      CLAVE_FIRMA: ${CLAVE_FIRMA:?Configura CLAVE_FIRMA en .env}
+      MODO_DEMO: ${MODO_DEMO:-true}
+
+volumes:
+  postgres_data:
