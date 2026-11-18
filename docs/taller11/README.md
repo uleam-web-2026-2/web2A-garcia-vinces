@@ -49,4 +49,11 @@ Solo para reiniciar desde cero la base descartable de demostración se puede eje
 3. Salida de `Invoke-RestMethod http://localhost:8081/healthz`.
 4. Registros de `docker compose logs api` donde la API indique que escucha en el puerto 8081.
 
+Capturas recibidas y guardadas en [`capturas/`](capturas/):
+
+- `01-docker-desktop.png`: contenedores activos en Docker Desktop.
+- `02-build-y-servicios.png`: construcción de la imagen y estado de los servicios.
+- `03-healthcheck.png`: respuesta del endpoint `/healthz`.
+- `04-logs-api.png`: registro de inicio con `Latent escuchando en :8081`.
+
 El entorno de edición usado para preparar esta carpeta no tenía Docker Desktop iniciado, así que estas salidas deben generarse al ejecutar el reto en la máquina local.
