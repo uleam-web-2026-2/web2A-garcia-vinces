@@ -18,12 +18,13 @@ $env:PUERTO = "8081"
 $env:DATABASE_URL = "postgres://usuario:clave@localhost:5432/LatentDemo?sslmode=disable"
 $env:CLAVE_FIRMA = "reemplaza-por-un-secreto-aleatorio-de-32-caracteres"
 $env:MODO_DEMO = "true"
+go run . -migrate
 go run .
 ```
 
 El Hito 2 evalúa la API mediante peticiones y pruebas; no pide una interfaz web ni Docker. El taller de Semana 11 sí consiste en contenerizar la API; revisa la sección «Taller Semana 11» más abajo. Comprueba `http://localhost:8081/healthz` y ejecuta la colección de [`docs/hito2_bruno/`](docs/hito2_bruno/) en Bruno. La cuenta anfitrión de demostración es `luis / luis-2026`; el login adicional de ejemplo es `ana / ana-2026`. **No habilites `MODO_DEMO` en una instancia pública.**
 
-La aplicación Go se conecta directamente a PostgreSQL usando `DATABASE_URL`; pgAdmin administra la base y no es necesario que la API use Docker. Asegúrate de que la base indicada en esa URL exista y que la contraseña coincida con tu instalación local. El código ejecuta migraciones al arrancar, pero no borra tablas ni filas. `go run . -reset` sí elimina las tablas; no lo uses con una base que quieras conservar.
+La aplicación Go se conecta directamente a PostgreSQL usando `DATABASE_URL`; pgAdmin administra la base y no es necesario que la API use Docker. Asegúrate de que la base indicada en esa URL exista y que la contraseña coincida con tu instalación local. Ejecuta `go run . -migrate` una vez para crear o actualizar el esquema y luego `go run .` para iniciar la API. `-reset` solo se acepta junto con `-migrate` y elimina tablas; no lo uses con una base que quieras conservar.
 
 ### Límite actual de almacenamiento de fotos
 
@@ -72,6 +73,12 @@ Si el contenedor no logra conectar con PostgreSQL, revisa que la URL use `host.d
 Para reconstruir después de cambiar el código, ejecuta de nuevo `docker build -t latent-api:local .` desde `servidor-pareja`. En producción, usa una base de datos accesible desde el servicio, credenciales propias, `MODO_DEMO=false` y secretos gestionados fuera del repositorio.
 
 Para el reto adicional con Compose, copia `.env.compose.example` como `.env.compose` en la raíz del repositorio y sigue [`docs/taller11/README.md`](docs/taller11/README.md). Compose levanta una PostgreSQL separada con volumen persistente y conecta la API por la red interna del proyecto.
+
+## Taller Semana 12: seguridad de la API
+
+El trabajo está en la rama `taller12`. Esta etapa configura CORS para el origen local del front, limita `POST /login` a cinco intentos por minuto e incluye un Compose aislado para separar el rol de la API del rol de migraciones. Consulta [`docs/taller12/README.md`](docs/taller12/README.md) para arrancarlo y preparar las evidencias reales; no uses las credenciales de ejemplo en un entorno desplegado. Las decisiones D1–D7 están en [`docs/decisiones.md`](docs/decisiones.md).
+
+Las capturas y salidas de las pruebas de inyección, CORS, limitación y permisos de PostgreSQL deben generarse desde la ejecución real en el equipo y guardarse en `docs/taller12/`. No se incluyen resultados inventados.
 
 ## Pruebas y contrato
 

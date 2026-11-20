@@ -20,8 +20,12 @@ import (
 )
 
 func main() {
+	migrate := flag.Bool("migrate", false, "crea o actualiza el esquema y termina")
 	reset := flag.Bool("reset", false, "borra las tablas y arranca con la base vacía")
 	flag.Parse()
+	if *reset && !*migrate {
+		log.Fatal("-reset solo se permite junto con -migrate")
+	}
 
 	puerto := os.Getenv("PUERTO")
 	if puerto == "" {
@@ -29,8 +33,11 @@ func main() {
 	}
 
 	dsn := os.Getenv("DATABASE_URL")
+	if *migrate && os.Getenv("MIGRATION_DATABASE_URL") != "" {
+		dsn = os.Getenv("MIGRATION_DATABASE_URL")
+	}
 	if dsn == "" {
-		log.Fatal("falta la variable de entorno DATABASE_URL")
+		log.Fatal("falta DATABASE_URL (o MIGRATION_DATABASE_URL para migraciones)")
 	}
 
 	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
@@ -38,20 +45,24 @@ func main() {
 		log.Fatal(err)
 	}
 
-	if *reset {
-		// primero las tablas del lado de los muchos, después las del uno
-		db.Migrator().DropTable(&latent.Foto{}, &latent.Invitado{}, &latent.Evento{}, &latent.Usuario{}, &sesion.Usuario{})
+	if *migrate {
+		if *reset {
+			// Operación destructiva, solo con -migrate -reset y una cuenta de migración.
+			if err := db.Migrator().DropTable(&latent.Foto{}, &latent.Invitado{}, &latent.Evento{}, &latent.Usuario{}, &sesion.Usuario{}); err != nil {
+				log.Fatal(err)
+			}
+		}
+		if err := db.AutoMigrate(&latent.Usuario{}, &latent.Evento{}, &latent.Invitado{}, &latent.Foto{}, &sesion.Usuario{}); err != nil {
+			log.Fatal(err)
+		}
+		log.Println("migraciones completadas")
+		return
 	}
 
 	// El secreto con el que se firman los tokens. Nunca va escrito en el código.
 	secreto := os.Getenv("CLAVE_FIRMA")
 	if len(secreto) < 32 {
 		log.Fatal("CLAVE_FIRMA debe tener al menos 32 caracteres")
-	}
-
-	err = db.Debug().AutoMigrate(&latent.Usuario{}, &latent.Evento{}, &latent.Invitado{}, &latent.Foto{}, &sesion.Usuario{})
-	if err != nil {
-		log.Fatal(err)
 	}
 
 	// Admin de prueba (id 1) del Hito 1

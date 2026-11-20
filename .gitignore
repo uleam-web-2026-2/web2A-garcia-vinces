@@ -10,3 +10,4 @@ docker.env
 !.env.example
 !.env.docker.example
 !.env.compose.example
+!.env.taller12.example

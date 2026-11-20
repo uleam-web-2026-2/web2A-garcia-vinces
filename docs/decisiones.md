@@ -105,10 +105,24 @@ Configuramos `http://localhost:5173`, que corresponde al origen local de desarro
 
 ### D3 El límite del login
 
-`POST /login` admite cinco intentos por minuto y dirección IP. Es una ruta pública que verifica credenciales y puede ser objetivo de intentos repetidos; por eso el límite se aplica solo al login y no bloquea lecturas o acciones protegidas de usuarios legítimos. El sexto intento dentro de la ventana debe recibir `429` y `Retry-After`. La ráfaga real y el valor observado de `Retry-After` se documentarán en `docs/taller12/rafaga.txt`; todavía debe ejecutarla el equipo.
+`POST /login` admite cinco intentos por minuto y dirección IP. Es una ruta pública que verifica credenciales y puede ser objetivo de intentos repetidos; por eso el límite se aplica solo al login y no bloquea lecturas o acciones protegidas de usuarios legítimos. `httprate` incluye `Retry-After` en la respuesta de límite. La ráfaga real y el valor observado se documentarán en `docs/taller12/rafaga.txt`; todavía debe ejecutarla el equipo. El contador incluido vive en memoria del proceso; si el servicio escala a varias réplicas, se debe configurar un contador compartido.
 
 ### D4 Detrás de un proxy
 
 El límite toma la IP de la conexión remota mediante `ClientIPFromRemoteAddr`, sin aceptar directamente `X-Forwarded-For`, que el cliente podría falsificar. Detrás de un proxy todas las conexiones pueden aparecer con la IP del proxy. En ese despliegue se debe configurar una cadena de proxies de confianza y validar sus rangos antes de aceptar una cabecera reenviada; confiar en cualquier `X-Forwarded-For` permitiría evadir el límite cambiándola en cada petición.
 
 > **Estado de las evidencias:** las salidas de auditoría, peticiones, ráfaga, logs y prueba de permisos deben generarse desde la ejecución real por los integrantes. No se han inventado ni agregado archivos de evidencia.
+
+## Semana 12 reto: mínimo privilegio en la base
+
+### D5 Con qué usuario se conecta la API
+
+En el Compose aislado del taller, el proceso de la API usa `latent_api`, un rol `LOGIN` sin superusuario y que no es dueño de la base, el esquema ni las tablas. Recibe `SELECT, INSERT` en `usuarios` y `fotos`; `SELECT, INSERT, UPDATE` en `cuentas` e `invitados`; `SELECT, INSERT, UPDATE, DELETE` en `eventos`, además de `USAGE, SELECT` en las secuencias de ID y `USAGE` en el esquema `public`. Estos permisos corresponden a las lecturas, altas y cambios que hace la aplicación. Falta ejecutar la prueba de `DROP TABLE` con la configuración real y anotar el rechazo de PostgreSQL en `reto_drop.txt`.
+
+### D6 Quién crea y cambia las tablas
+
+El usuario de bootstrap de PostgreSQL crea los roles una sola vez al inicializar el volumen nuevo. `latent_migrator`, que no es superusuario, queda como dueño de la base y del esquema; el servicio `migrate` conecta con ese rol y ejecuta el binario con `-migrate`, que corre `AutoMigrate` y termina. El contenedor `api` conecta como `latent_api` y ya no ejecuta migraciones al arrancar. Si cambia un modelo, se debe correr primero el servicio de migración; iniciar solo la API no debe crear ni alterar tablas y fallará si el esquema requerido aún no existe. La lista efectiva de roles debe guardarse desde el entorno ejecutado en `reto_usuarios.txt`.
+
+### D7 Lo que esto no frena
+
+El rol de la API todavía puede leer y modificar las filas en las tablas donde el negocio necesita operar. Una inyección que llegue a esas consultas aún podría exponer o alterar esos datos dentro de esos permisos; por eso sigue siendo obligatorio parametrizar las consultas y validar entradas. El rol no puede crear ni eliminar tablas, cambiar el esquema o administrar roles, lo que reduce el alcance de un fallo. Los permisos de base limitan el daño; no reemplazan la defensa contra inyección.

@@ -1,0 +1,74 @@
+services:
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-LatentDemo}
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_ADMIN_PASSWORD:?Define POSTGRES_ADMIN_PASSWORD en .env.taller12}
+      MIGRATION_DB_USER: ${MIGRATION_DB_USER:?Define MIGRATION_DB_USER en .env.taller12}
+      MIGRATION_DB_PASSWORD: ${MIGRATION_DB_PASSWORD:?Define MIGRATION_DB_PASSWORD en .env.taller12}
+      API_DB_USER: ${API_DB_USER:?Define API_DB_USER en .env.taller12}
+      API_DB_PASSWORD: ${API_DB_PASSWORD:?Define API_DB_PASSWORD en .env.taller12}
+    volumes:
+      - latent_taller12_data:/var/lib/postgresql/data
+      - ./servidor-pareja/db/taller12/01-create-roles.sh:/docker-entrypoint-initdb.d/01-create-roles.sh:ro
+      - ./servidor-pareja/db/taller12/roles.sql:/sql/roles.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
+      interval: 5s
+      timeout: 3s
+      retries: 15
+
+  migrate:
+    image: latent-api:taller12
+    build:
+      context: ./servidor-pareja
+      dockerfile: Dockerfile
+    command: ["-migrate"]
+    restart: "no"
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      MIGRATION_DATABASE_URL: postgres://${MIGRATION_DB_USER}:${MIGRATION_DB_PASSWORD}@db:5432/${POSTGRES_DB:-LatentDemo}?sslmode=disable
+
+  grant-api:
+    image: postgres:17-alpine
+    restart: "no"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    environment:
+      PGPASSWORD: ${MIGRATION_DB_PASSWORD:?Define MIGRATION_DB_PASSWORD en .env.taller12}
+      DB_HOST: db
+      DB_NAME: ${POSTGRES_DB:-LatentDemo}
+      MIGRATION_DB_USER: ${MIGRATION_DB_USER:?Define MIGRATION_DB_USER en .env.taller12}
+      API_DB_USER: ${API_DB_USER:?Define API_DB_USER en .env.taller12}
+      API_DB_PASSWORD: ${API_DB_PASSWORD:?Define API_DB_PASSWORD en .env.taller12}
+    volumes:
+      - ./servidor-pareja/db/taller12/grants.sql:/sql/grants.sql:ro
+    entrypoint: ["/bin/sh", "-ec"]
+    command:
+      - |
+        psql -h "$$DB_HOST" -U "$$MIGRATION_DB_USER" -d "$$DB_NAME" -v ON_ERROR_STOP=1 -v api_user="$$API_DB_USER" -v database_name="$$DB_NAME" -f /sql/grants.sql
+
+  api:
+    image: latent-api:taller12
+    build:
+      context: ./servidor-pareja
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      grant-api:
+        condition: service_completed_successfully
+    ports:
+      - "${PUERTO:-8081}:8081"
+    environment:
+      PUERTO: "8081"
+      DATABASE_URL: postgres://${API_DB_USER}:${API_DB_PASSWORD}@db:5432/${POSTGRES_DB:-LatentDemo}?sslmode=disable
+      CLAVE_FIRMA: ${CLAVE_FIRMA:?Define CLAVE_FIRMA en .env.taller12}
+      MODO_DEMO: ${MODO_DEMO:-true}
+
+volumes:
+  latent_taller12_data:
