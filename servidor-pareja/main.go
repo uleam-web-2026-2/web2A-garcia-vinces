@@ -105,6 +105,7 @@ func main() {
 		AllowedHeaders: []string{"Authorization", "Content-Type"},
 		MaxAge:         300,
 	}))
+	r.Use(middleware.Logger)
 	// La IP viene de RemoteAddr, no de una cabecera manipulable por el cliente.
 	r.Use(middleware.ClientIPFromRemoteAddr)
 
