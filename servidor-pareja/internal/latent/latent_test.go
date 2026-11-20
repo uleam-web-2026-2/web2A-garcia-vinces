@@ -119,6 +119,12 @@ func TestEventoInvalido(t *testing.T) {
 	esperar(t, rec, http.StatusBadRequest)
 }
 
+func TestIDConTextoSQLResponde400(t *testing.T) {
+	s := nuevoServidor(t)
+	rec := llamarComo(s, sesion.RolAnfitrion, 1, http.MethodGet, "/eventos/1%20OR%201=1", "")
+	esperar(t, rec, http.StatusBadRequest)
+}
+
 func TestCodigoInexistente(t *testing.T) {
 	s := nuevoServidor(t)
 	rec := llamar(s, "POST", "/eventos/unirse",

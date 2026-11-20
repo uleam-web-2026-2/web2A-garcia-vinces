@@ -1,0 +1,12 @@
+Sprintf
+Raw\(
+Exec(Context)?\(
+Query(Row)?(Context)?\(
+Order\(
+Group\(
+Select\(
+First\(
+Find\(
+Where\(
+\+\s*"
+"\s*\+
