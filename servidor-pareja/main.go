@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/cors"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 
@@ -30,12 +31,6 @@ func main() {
 		log.Fatal("falta la variable de entorno DATABASE_URL")
 	}
 
-	// El secreto con el que se firman los tokens. Nunca va escrito en el código.
-	secreto := os.Getenv("CLAVE_FIRMA")
-	if len(secreto) < 32 {
-		log.Fatal("CLAVE_FIRMA debe tener al menos 32 caracteres")
-	}
-
 	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
 	if err != nil {
 		log.Fatal(err)
@@ -44,6 +39,12 @@ func main() {
 	if *reset {
 		// primero las tablas del lado de los muchos, después las del uno
 		db.Migrator().DropTable(&latent.Foto{}, &latent.Invitado{}, &latent.Evento{}, &latent.Usuario{}, &sesion.Usuario{})
+	}
+
+	// El secreto con el que se firman los tokens. Nunca va escrito en el código.
+	secreto := os.Getenv("CLAVE_FIRMA")
+	if len(secreto) < 32 {
+		log.Fatal("CLAVE_FIRMA debe tener al menos 32 caracteres")
 	}
 
 	err = db.Debug().AutoMigrate(&latent.Usuario{}, &latent.Evento{}, &latent.Invitado{}, &latent.Foto{}, &sesion.Usuario{})
@@ -84,7 +85,13 @@ func main() {
 	tokens := sesion.NuevosTokens(secreto)
 
 	r := chi.NewRouter()
-	// r.Use(middleware.TuPrimero, middleware.TuSegundo)  // descomenta con los nombres reales
+	// CORS se instala primero para responder las peticiones previas OPTIONS.
+	r.Use(cors.Handler(cors.Options{
+		AllowedOrigins: []string{"http://localhost:5173"},
+		AllowedMethods: []string{"GET", "POST", "PUT", "PATCH", "DELETE"},
+		AllowedHeaders: []string{"Authorization", "Content-Type"},
+		MaxAge:         300,
+	}))
 	r.Post("/login", (&sesion.Manejador{DB: db, Tokens: tokens}).Login)
 	r.Get("/healthz", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json; charset=utf-8")
