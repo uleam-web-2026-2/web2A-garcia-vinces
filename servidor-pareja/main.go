@@ -9,7 +9,9 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
+	"github.com/go-chi/httprate"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 
@@ -92,7 +94,12 @@ func main() {
 		AllowedHeaders: []string{"Authorization", "Content-Type"},
 		MaxAge:         300,
 	}))
-	r.Post("/login", (&sesion.Manejador{DB: db, Tokens: tokens}).Login)
+	// La IP viene de RemoteAddr, no de una cabecera manipulable por el cliente.
+	r.Use(middleware.ClientIPFromRemoteAddr)
+
+	login := &sesion.Manejador{DB: db, Tokens: tokens}
+	// El límite es específico del login: cinco intentos por minuto y dirección IP.
+	r.With(httprate.LimitBy(5, time.Minute, porIP)).Post("/login", login.Login)
 	r.Get("/healthz", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json; charset=utf-8")
 		w.WriteHeader(http.StatusOK)
@@ -111,4 +118,9 @@ func main() {
 	log.Println("Latent escuchando en :" + puerto)
 	server := &http.Server{Addr: ":" + puerto, Handler: r, ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 20 * time.Second, WriteTimeout: 60 * time.Second, IdleTimeout: 60 * time.Second}
 	log.Fatal(server.ListenAndServe())
+}
+
+func porIP(r *http.Request) (string, error) {
+	ip := middleware.GetClientIP(r.Context())
+	return httprate.CanonicalizeIP(ip), nil
 }

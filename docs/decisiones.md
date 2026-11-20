@@ -88,3 +88,27 @@ Se tocaron `servidor-pareja/internal/latent/fotos_servicio.go`, `fotos_repositor
 | D9 | Esperar a que PostgreSQL pase su healthcheck antes de iniciar la API. | Evita que la API intente conectarse mientras la base todavía está arrancando. |
 
 El reto Compose es local y de demostración. Usa credenciales de ejemplo reemplazables; no debe publicarse con esos valores.
+
+## Semana 12: la seguridad de la API
+
+### D1 Lo que encontramos y cerramos
+
+La búsqueda de patrones devuelve 32 coincidencias candidatas. La cifra incluye llamadas SQL, consultas GORM y falsos positivos como `fmt.Sprintf`, concatenaciones para mensajes/rutas y las interfaces de sqlc; la salida y la clasificación línea por línea se deben guardar y completar en `docs/taller12/auditoria.txt` y `docs/taller12/auditoria.md` al ejecutar la auditoría real.
+
+En la revisión del código, las consultas SQL de `reservas.go` usan `?` con argumentos separados, las consultas sqlc usan `$1`, `$2`, etc., los filtros GORM pasan valores como argumentos y los nombres de orden están fijos en el código. Los ID de ruta pasan por `strconv.Atoi` y se rechazan con `400` si no son enteros positivos. Se añadió una prueba automatizada para la ruta con `1 OR 1=1`; falta ejecutar y guardar la petición manual con el servidor local en `inyeccion.txt`.
+
+### D2 El origen que puede leer nuestras respuestas
+
+Configuramos `http://localhost:5173`, que corresponde al origen local de desarrollo previsto para el front. No usamos `*` para limitar qué sitio puede leer las respuestas. CORS se registra inmediatamente después de crear el router y antes de otros middleware/rutas, de modo que atienda las peticiones previas `OPTIONS` antes de la autenticación. La API acepta los métodos y encabezados que usa el proyecto.
+
+`curl` no aplica la política CORS del navegador: una petición enviada desde `http://malo.example` puede ser procesada por el servidor aunque el navegador no permita que ese sitio lea la respuesta. La verificación real de las cabeceras y del cambio de estado queda pendiente en `cors_permitido.txt`, `cors_no_permitido.txt` y `cors_curl_ejecuta.txt`. Al publicar el front, `AllowedOrigins` debe cambiarse al origen HTTPS exacto del front desplegado.
+
+### D3 El límite del login
+
+`POST /login` admite cinco intentos por minuto y dirección IP. Es una ruta pública que verifica credenciales y puede ser objetivo de intentos repetidos; por eso el límite se aplica solo al login y no bloquea lecturas o acciones protegidas de usuarios legítimos. El sexto intento dentro de la ventana debe recibir `429` y `Retry-After`. La ráfaga real y el valor observado de `Retry-After` se documentarán en `docs/taller12/rafaga.txt`; todavía debe ejecutarla el equipo.
+
+### D4 Detrás de un proxy
+
+El límite toma la IP de la conexión remota mediante `ClientIPFromRemoteAddr`, sin aceptar directamente `X-Forwarded-For`, que el cliente podría falsificar. Detrás de un proxy todas las conexiones pueden aparecer con la IP del proxy. En ese despliegue se debe configurar una cadena de proxies de confianza y validar sus rangos antes de aceptar una cabecera reenviada; confiar en cualquier `X-Forwarded-For` permitiría evadir el límite cambiándola en cada petición.
+
+> **Estado de las evidencias:** las salidas de auditoría, peticiones, ráfaga, logs y prueba de permisos deben generarse desde la ejecución real por los integrantes. No se han inventado ni agregado archivos de evidencia.
