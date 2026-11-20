@@ -93,35 +93,35 @@ El reto Compose es local y de demostración. Usa credenciales de ejemplo reempla
 
 ### D1 Lo que encontramos y cerramos
 
-La búsqueda de patrones devuelve 32 coincidencias candidatas. La cifra incluye llamadas SQL, consultas GORM y falsos positivos como `fmt.Sprintf`, concatenaciones para mensajes/rutas y las interfaces de sqlc; la salida y la clasificación línea por línea se deben guardar y completar en `docs/taller12/auditoria.txt` y `docs/taller12/auditoria.md` al ejecutar la auditoría real.
+La búsqueda de patrones devuelve 32 coincidencias candidatas. La cifra incluye llamadas SQL, consultas GORM y falsos positivos como `fmt.Sprintf`, concatenaciones para mensajes/rutas y las interfaces de sqlc. La salida está guardada en `docs/taller12/auditoria.txt` y `auditoria_despues.txt`; la clasificación línea por línea está en `auditoria.md`.
 
-En la revisión del código, las consultas SQL de `reservas.go` usan `?` con argumentos separados, las consultas sqlc usan `$1`, `$2`, etc., los filtros GORM pasan valores como argumentos y los nombres de orden están fijos en el código. Los ID de ruta pasan por `strconv.Atoi` y se rechazan con `400` si no son enteros positivos. Se añadió una prueba automatizada para la ruta con `1 OR 1=1`; falta ejecutar y guardar la petición manual con el servidor local en `inyeccion.txt`.
+En la revisión del código, las consultas SQL de `reservas.go` usan `?` con argumentos separados, las consultas sqlc usan `$1`, `$2`, etc., los filtros GORM pasan valores como argumentos y los nombres de orden están fijos en el código. Los ID de ruta pasan por `strconv.Atoi` y se rechazan con `400` si no son enteros positivos. La comparación local quedó en `docs/taller12/inyeccion.txt`: la consulta normal devuelve `200` y la ruta manipulada `1 OR 1=1` devuelve `400 id_invalido`.
 
 ### D2 El origen que puede leer nuestras respuestas
 
 Configuramos `http://localhost:5173`, que corresponde al origen local de desarrollo previsto para el front. No usamos `*` para limitar qué sitio puede leer las respuestas. CORS se registra inmediatamente después de crear el router y antes de otros middleware/rutas, de modo que atienda las peticiones previas `OPTIONS` antes de la autenticación. La API acepta los métodos y encabezados que usa el proyecto.
 
-`curl` no aplica la política CORS del navegador: una petición enviada desde `http://malo.example` puede ser procesada por el servidor aunque el navegador no permita que ese sitio lea la respuesta. La verificación real de las cabeceras y del cambio de estado queda pendiente en `cors_permitido.txt`, `cors_no_permitido.txt` y `cors_curl_ejecuta.txt`. Al publicar el front, `AllowedOrigins` debe cambiarse al origen HTTPS exacto del front desplegado.
+`curl` no aplica la política CORS del navegador: una petición enviada desde `http://sitio-malicioso.example` puede ser procesada por el servidor aunque el navegador no permita que ese sitio lea la respuesta. Las salidas reales están en `docs/taller12/cors_permitido.txt`, `cors_no_permitido.txt` y `cors_curl_ejecuta.txt`: se comprobó el preflight del origen permitido, la ausencia de `Access-Control-Allow-Origin` para el origen ajeno y que `curl` sí pudo ejecutar el PATCH. Al publicar el front, `AllowedOrigins` debe cambiarse al origen HTTPS exacto del front desplegado.
 
 ### D3 El límite del login
 
-`POST /login` admite cinco intentos por minuto y dirección IP. Es una ruta pública que verifica credenciales y puede ser objetivo de intentos repetidos; por eso el límite se aplica solo al login y no bloquea lecturas o acciones protegidas de usuarios legítimos. `httprate` incluye `Retry-After` en la respuesta de límite. La ráfaga real y el valor observado se documentarán en `docs/taller12/rafaga.txt`; todavía debe ejecutarla el equipo. El contador incluido vive en memoria del proceso; si el servicio escala a varias réplicas, se debe configurar un contador compartido.
+`POST /login` admite cinco intentos por minuto y dirección IP. Es una ruta pública que verifica credenciales y puede ser objetivo de intentos repetidos; por eso el límite se aplica solo al login y no bloquea lecturas o acciones protegidas de usuarios legítimos. La salida real en `docs/taller12/rafaga.txt` muestra cinco respuestas `401` y luego dos `429` con `Retry-After: 60`. El contador incluido vive en memoria del proceso; si el servicio escala a varias réplicas, se debe configurar un contador compartido.
 
 ### D4 Detrás de un proxy
 
 El límite toma la IP de la conexión remota mediante `ClientIPFromRemoteAddr`, sin aceptar directamente `X-Forwarded-For`, que el cliente podría falsificar. Detrás de un proxy todas las conexiones pueden aparecer con la IP del proxy. En ese despliegue se debe configurar una cadena de proxies de confianza y validar sus rangos antes de aceptar una cabecera reenviada; confiar en cualquier `X-Forwarded-For` permitiría evadir el límite cambiándola en cada petición.
 
-> **Estado de las evidencias:** las salidas de auditoría, peticiones, ráfaga, logs y prueba de permisos deben generarse desde la ejecución real por los integrantes. No se han inventado ni agregado archivos de evidencia.
+> **Estado de las evidencias:** los archivos de texto y las capturas de `docs/taller12/` se generaron con las ejecuciones locales compartidas. La línea base de S11 sigue pendiente porque no se recibió evidencia de esa versión; no se presenta como completada.
 
 ## Semana 12 reto: mínimo privilegio en la base
 
 ### D5 Con qué usuario se conecta la API
 
-En el Compose aislado del taller, el proceso de la API usa `latent_api`, un rol `LOGIN` sin superusuario y que no es dueño de la base, el esquema ni las tablas. Recibe `SELECT, INSERT` en `usuarios` y `fotos`; `SELECT, INSERT, UPDATE` en `cuentas` e `invitados`; `SELECT, INSERT, UPDATE, DELETE` en `eventos`, además de `USAGE, SELECT` en las secuencias de ID y `USAGE` en el esquema `public`. Estos permisos corresponden a las lecturas, altas y cambios que hace la aplicación. Falta ejecutar la prueba de `DROP TABLE` con la configuración real y anotar el rechazo de PostgreSQL en `reto_drop.txt`.
+En el Compose aislado del taller, el proceso de la API usa `latent_api`, un rol `LOGIN` sin superusuario y que no es dueño de la base, el esquema ni las tablas. Recibe `SELECT, INSERT` en `usuarios` y `fotos`; `SELECT, INSERT, UPDATE` en `cuentas` e `invitados`; `SELECT, INSERT, UPDATE, DELETE` en `eventos`, además de `USAGE, SELECT` en las secuencias de ID y `USAGE` en el esquema `public`. Estos permisos corresponden a las lecturas, altas y cambios que hace la aplicación. La evidencia `docs/taller12/reto_drop.txt` registra que PostgreSQL rechazó `DROP TABLE public.eventos` con `must be owner of table eventos`.
 
 ### D6 Quién crea y cambia las tablas
 
-El usuario de bootstrap de PostgreSQL crea los roles una sola vez al inicializar el volumen nuevo. `latent_migrator`, que no es superusuario, queda como dueño de la base y del esquema; el servicio `migrate` conecta con ese rol y ejecuta el binario con `-migrate`, que corre `AutoMigrate` y termina. El contenedor `api` conecta como `latent_api` y ya no ejecuta migraciones al arrancar. Si cambia un modelo, se debe correr primero el servicio de migración; iniciar solo la API no debe crear ni alterar tablas y fallará si el esquema requerido aún no existe. La lista efectiva de roles debe guardarse desde el entorno ejecutado en `reto_usuarios.txt`.
+El usuario de bootstrap de PostgreSQL crea los roles una sola vez al inicializar el volumen nuevo. `latent_migrator`, que no es superusuario, queda como dueño de la base y del esquema; el servicio `migrate` conecta con ese rol y ejecuta el binario con `-migrate`, que corre `AutoMigrate` y termina. El contenedor `api` conecta como `latent_api` y ya no ejecuta migraciones al arrancar. Si cambia un modelo, se debe correr primero el servicio de migración; iniciar solo la API no debe crear ni alterar tablas y fallará si el esquema requerido aún no existe. `docs/taller12/reto_usuarios.txt` guarda la lista de roles y confirma que `latent_api` no tiene atributos de superusuario, creación de bases ni creación de roles.
 
 ### D7 Lo que esto no frena
 

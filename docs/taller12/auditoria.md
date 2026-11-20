@@ -14,4 +14,4 @@ La búsqueda real con `git grep` produjo 32 coincidencias candidatas. Se revisar
 | `servidor-pareja/internal/latent/filas/db.go:13,15,16`; `servidor-pareja/internal/latent/rutas.go:23` | No ejecutan consultas. | No. | No aplica. | Falsos positivos: son interfaces de base de datos y agrupación de rutas. |
 | `servidor-pareja/internal/sesion/guardia.go:60`; `servidor-pareja/main.go:117,129,130` | No. | No se usa para SQL. | No aplica. | Falsos positivos: se construyen un mensaje, una respuesta o la dirección del servidor. |
 
-La prueba automatizada `TestIDConTextoSQLResponde400` comprueba que un ID con texto tipo `OR 1=1` se rechaza con HTTP 400. La petición manual con el servidor en ejecución y su resultado deben registrarse por separado en `inyeccion.txt`.
+La prueba automatizada `TestIDConTextoSQLResponde400` y la petición manual confirman el rechazo de un ID con texto tipo `OR 1=1` con HTTP 400. La salida de la petición normal y la manipulada está en `inyeccion.txt`.

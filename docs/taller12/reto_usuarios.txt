@@ -1,0 +1,12 @@
+                                List of roles
+    Role name    |                         Attributes                         
+-----------------+------------------------------------------------------------
+ latent_api      | 
+ latent_migrator | 
+ postgres        | Superuser, Create role, Create DB, Replication, Bypass RLS
+
+ current_user | rolsuper | rolcreatedb | rolcreaterole 
+--------------+----------+-------------+---------------
+ latent_api   | f        | f           | f
+(1 row)
+
