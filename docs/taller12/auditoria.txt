@@ -1,0 +1,32 @@
+servidor-pareja/internal/latent/eventos_repositorio.go:33:	err := r.db.WithContext(ctx).Where("usuario_id = ?", usuarioID).Order("id DESC").Find(&eventos).Error
+servidor-pareja/internal/latent/eventos_repositorio.go:42:	err := r.db.WithContext(ctx).First(&evento, id).Error
+servidor-pareja/internal/latent/eventos_repositorio.go:55:	err := r.db.WithContext(ctx).Model(&Invitado{}).Where("evento_id = ?", id).Count(&total).Error
+servidor-pareja/internal/latent/eventos_repositorio.go:61:	err := r.db.WithContext(ctx).Model(&Foto{}).Where("evento_id = ?", id).Count(&total).Error
+servidor-pareja/internal/latent/eventos_servicio.go:163:		return fmt.Sprintf("EVT-%06d", time.Now().UnixNano()%1_000_000)
+servidor-pareja/internal/latent/eventos_servicio.go:168:	return "EVT-" + string(b)
+servidor-pareja/internal/latent/filas/consultas.sql.go:20:	row := q.db.QueryRowContext(ctx, buscarEvento, id)
+servidor-pareja/internal/latent/filas/consultas.sql.go:50:	row := q.db.QueryRowContext(ctx, crearFoto,
+servidor-pareja/internal/latent/filas/consultas.sql.go:84:	row := q.db.QueryRowContext(ctx, estadoCuotaFoto, id)
+servidor-pareja/internal/latent/filas/consultas.sql.go:119:	result, err := q.db.ExecContext(ctx, guardarEvento,
+servidor-pareja/internal/latent/filas/consultas.sql.go:147:	result, err := q.db.ExecContext(ctx, incrementarCuotaFoto, id)
+servidor-pareja/internal/latent/filas/db.go:13:	ExecContext(context.Context, string, ...interface{}) (sql.Result, error)
+servidor-pareja/internal/latent/filas/db.go:15:	QueryContext(context.Context, string, ...interface{}) (*sql.Rows, error)
+servidor-pareja/internal/latent/filas/db.go:16:	QueryRowContext(context.Context, string, ...interface{}) *sql.Row
+servidor-pareja/internal/latent/manejadores.go:116:			Where("codigo_acceso = ?", in.CodigoAcceso).First(&ev).Error; err != nil {
+servidor-pareja/internal/latent/manejadores.go:124:		err := tx.Where("evento_id = ? AND nombre = ?", ev.ID, in.Nombre).First(&inv).Error
+servidor-pareja/internal/latent/manejadores.go:136:		tx.Model(&Invitado{}).Where("evento_id = ?", ev.ID).Count(&total)
+servidor-pareja/internal/latent/manejadores.go:195:	if err := m.DB.Where("uuid = ?", in.UUID).First(&existente).Error; err == nil {
+servidor-pareja/internal/latent/manejadores.go:244:	if err := m.DB.First(&ev, id).Error; err != nil {
+servidor-pareja/internal/latent/manejadores.go:263:	if err := m.DB.Where("evento_id = ?", ev.ID).Order("id").Find(&fotos).Error; err != nil {
+servidor-pareja/internal/latent/reservas.go:22:	res := tx.Exec(`
+servidor-pareja/internal/latent/reservas.go:43:	err := tx.Raw(`
+servidor-pareja/internal/latent/reservas.go:65:		if err := tx.First(&invitado, f.InvitadoID).Error; err != nil {
+servidor-pareja/internal/latent/rutas.go:23:	r.Group(func(r chi.Router) {
+servidor-pareja/internal/sesion/guardia.go:60:					"solo el rol "+rol+" puede hacer esto")
+servidor-pareja/internal/sesion/usuarios.go:69:	if err := db.Where("nombre = ?", nombre).Limit(1).Find(&u).Error; err != nil {
+servidor-pareja/internal/sesion/usuarios.go:98:	err := m.DB.Where("nombre = ?", pedido.Usuario).Limit(1).Find(&u).Error
+servidor-pareja/main.go:89:	if err := db.Find(&cuentas).Error; err != nil {
+servidor-pareja/main.go:94:		if err := db.Where("id = ?", cuenta.ID).Attrs(latent.Usuario{Nombre: cuenta.Nombre, Rol: cuenta.Rol}).FirstOrCreate(&usuario).Error; err != nil {
+servidor-pareja/main.go:117:		_, _ = w.Write([]byte(`{"ok":true}` + "\n"))
+servidor-pareja/main.go:129:	log.Println("Latent escuchando en :" + puerto)
+servidor-pareja/main.go:130:	server := &http.Server{Addr: ":" + puerto, Handler: r, ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 20 * time.Second, WriteTimeout: 60 * time.Second, IdleTimeout: 60 * time.Second}
