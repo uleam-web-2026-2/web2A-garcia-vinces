@@ -1,0 +1,10 @@
+api-1  | 2026/11/20 17:42:11 Latent escuchando en :8081
+api-1  | 2026/11/20 17:42:15 "GET http://localhost:8082/healthz HTTP/1.1" from 172.20.0.1:52932 - 200 12B in 1.461725ms
+api-1  | 2026/11/20 17:43:18 "POST http://localhost:8082/eventos/unirse HTTP/1.1" from 172.20.0.1:47506 - 200 326B in 42.51594ms
+api-1  | 2026/11/20 17:43:24 "POST http://localhost:8082/login HTTP/1.1" from 172.20.0.1:52586 - 200 220B in 72.001434ms
+api-1  | 2026/11/20 17:43:27 "GET http://localhost:8082/eventos/2/fotos HTTP/1.1" from 172.20.0.1:52586 - 200 23B in 2.517864ms
+api-1  | 2026/11/20 17:43:29 "PATCH http://localhost:8082/eventos/2 HTTP/1.1" from 172.20.0.1:52586 - 403 102B in 214.282µs
+api-1  | 2026/11/20 17:43:31 "PATCH http://localhost:8082/eventos/2 HTTP/1.1" from 172.20.0.1:52586 - 200 212B in 5.167088ms
+api-1  | 2026/11/20 17:43:34 "PATCH http://localhost:8082/eventos/1 HTTP/1.1" from 172.20.0.1:52586 - 422 134B in 5.153923ms
+api-1  | 2026/11/20 17:47:35 "GET http://localhost:8082/eventos/2/fotos HTTP/1.1" from 172.20.0.1:60184 - 401 107B in 9.450428ms
+api-1  | 2026/11/20 17:47:59 "GET http://localhost:8082/eventos/2/fotos HTTP/1.1" from 172.20.0.1:41454 - 401 107B in 1.535377ms
