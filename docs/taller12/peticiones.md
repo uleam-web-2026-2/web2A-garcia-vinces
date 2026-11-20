@@ -4,7 +4,7 @@ Los resultados de S12 se registraron a partir de las respuestas reales de Bruno.
 
 | N.º | Método y ruta | Autenticación / rol | Qué comprueba | Esperado | Antes (S11) | Con defensas (S12) | Con usuario API restringido | Evidencia recibida |
 |---:|---|---|---|---:|---|---|---|---|
-| 0 Preparación | `POST /eventos/unirse` | Código de acceso | Registra al invitado de prueba. | 200 | Pendiente | 200 | 200 | Omitida: la captura dejaba visible el token. |
+| 0 Preparación | `POST /eventos/unirse` | Código de acceso | Registra al invitado de prueba. | 200 | Pendiente | 200 | 200 | [Bruno preparación 200](capturas/bruno-00-preparacion-200.png) |
 | 1 | `GET /eventos/{id}/fotos` | Sin token | El middleware rechaza una ruta protegida. | 401 | Pendiente | 401 | 401 | [Bruno 401](capturas/bruno-01-sin-token-401.png) |
 | 2 | `POST /login` | Credenciales de anfitrión | Inicia sesión y obtiene el token del anfitrión. | 200 | Pendiente | 200 | 200 | [Bruno login 200](capturas/bruno-02-token-anfitrion.png) |
 | 3 | `GET /eventos/{id}/fotos` | Token de invitado | Permite consultar las fotos del evento. | 200 | Pendiente | 200 | 200 | [Bruno 200](capturas/bruno-03-acceso-invitado-200.png) |
