@@ -11,21 +11,23 @@ Copy-Item .env.taller12.example .env.taller12
 notepad .env.taller12
 ```
 
-Reemplaza todas las contraseñas y `CLAVE_FIRMA` por valores propios antes de arrancar. Para `MIGRATION_DB_PASSWORD` y `API_DB_PASSWORD`, usa letras, números, guion o guion bajo para que puedan viajar en el URL de PostgreSQL sin escapar caracteres. No uses los valores de ejemplo en un servidor público. Este Compose usa una base y un volumen separados; no modifica el Compose ni los datos del taller 11.
+Reemplaza todas las contraseñas y `CLAVE_FIRMA` por valores propios antes de arrancar. Para `MIGRATION_DB_PASSWORD` y `API_DB_PASSWORD`, usa letras, números, guion o guion bajo para que puedan viajar en el URL de PostgreSQL sin escapar caracteres. No uses los valores de ejemplo en un servidor público. Este Compose usa el proyecto `latent-taller12`, con contenedores y volumen separados del taller 11. Si el taller 11 ya usa `8081`, deja `PUERTO=8082` para que ambos puedan estar activos.
 
 ```powershell
-docker compose -f compose.taller12.yaml --env-file .env.taller12 up --build -d
-docker compose -f compose.taller12.yaml --env-file .env.taller12 ps
-Invoke-RestMethod http://localhost:8081/healthz
+docker compose -p latent-taller12 -f compose.taller12.yaml --env-file .env.taller12 up --build -d
+docker compose -p latent-taller12 -f compose.taller12.yaml --env-file .env.taller12 ps
+Invoke-RestMethod http://localhost:8082/healthz
 ```
+
+Si configuraste `PUERTO=8081` porque está libre, consulta `http://localhost:8081/healthz`.
 
 La primera ejecución crea los roles y el esquema en un volumen limpio, otorga los permisos mínimos y luego inicia la API. Para detener el entorno sin borrar los datos:
 
 ```powershell
-docker compose -f compose.taller12.yaml --env-file .env.taller12 down
+docker compose -p latent-taller12 -f compose.taller12.yaml --env-file .env.taller12 down
 ```
 
-No ejecutes `down -v` si quieres conservar la base de demostración. El volumen de este Compose se llama `latent_taller12_data`.
+No ejecutes `down -v` si quieres conservar la base de demostración. El volumen se declara como `latent_taller12_data` dentro del proyecto `latent-taller12`.
 
 ## Evidencias que debes generar y subir
 
